@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 
 const SUPABASE_URL = "https://ygwjvkjrpojxjczcholu.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlnd2p2a2pycG9qeGpjemNob2x1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc2ODgyODAsImV4cCI6MjA2MzI2NDI4MH0.GxrxHVnmMgizxG2LKp70YpG6tMQX5X0OAIBR1HLySSI";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlnd2p2a2pycG9qeGpjemNob2x1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNzgyNDYsImV4cCI6MjA5NDk1NDI0Nn0.NvCxB2sXVxa4kQVGiVPs6_x1cinRi4UFpBJud6sx1Nw";
 
 const PALETTE = ["#1B3A6B","#378ADD","#1D9E75","#BA7517","#A32D2D","#534AB7","#D85A30","#3B6D11","#D4537E","#888780"];
 const TURN_COLORS = { "mañana":"#1B3A6B", "tarde":"#378ADD", "noche":"#534AB7" };
