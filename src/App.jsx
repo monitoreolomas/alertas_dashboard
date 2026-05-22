@@ -161,7 +161,7 @@ function Heatmap({ matrix, rowLabels, colLabels }) {
 
 // ─── FILTROS ──────────────────────────────────────────────────────────────────
 function FiltersPanel({ filters, setFilters, options, open, setOpen }) {
-  const inp = {
+  const baseInp = {
     background:"#0d0d1f",
     border:`1px solid ${T.border}`,
     color:T.text,
@@ -172,7 +172,12 @@ function FiltersPanel({ filters, setFilters, options, open, setOpen }) {
     outline:"none",
     width:"100%",
   };
+  // color-scheme:dark hace que el ícono del calendario se vea en fondos oscuros
+  const dateInp = { ...baseInp, colorScheme:"dark" };
   const lbl = {fontSize:11,color:T.text2,fontWeight:600,letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:5,fontFamily:"'Inter',sans-serif",display:"block"};
+
+  const hasActive = filters.cgm||filters.categoria||filters.tipo||filters.turno;
+
   return (
     <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,marginBottom:20,overflow:"hidden"}}>
       <button
@@ -181,7 +186,7 @@ function FiltersPanel({ filters, setFilters, options, open, setOpen }) {
       >
         <span style={{fontSize:12,fontWeight:600,fontFamily:"'Inter',sans-serif",letterSpacing:"0.05em",display:"flex",alignItems:"center",gap:8}}>
           <span>⚙</span> FILTROS
-          {(filters.fechaDesde||filters.fechaHasta||filters.cgm||filters.categoria||filters.tipo) && (
+          {hasActive && (
             <span style={{background:T.accent,color:"#fff",borderRadius:20,padding:"1px 8px",fontSize:10,fontWeight:700}}>activos</span>
           )}
         </span>
@@ -189,30 +194,72 @@ function FiltersPanel({ filters, setFilters, options, open, setOpen }) {
       </button>
       {open && (
         <div style={{padding:"0 18px 16px",borderTop:`1px solid rgba(139,92,246,0.1)`}}>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:14,paddingTop:14}}>
-            {[["fechaDesde","Desde","date"],["fechaHasta","Hasta","date"]].map(([k,l,t])=>(
-              <div key={k}>
-                <label style={lbl}>{l}</label>
-                <input type={t} value={filters[k]} onChange={e=>setFilters(f=>({...f,[k]:e.target.value}))} style={inp}/>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(155px,1fr))",gap:14,paddingTop:14}}>
+
+            {/* Desde */}
+            <div>
+              <label style={lbl}>Desde</label>
+              <input
+                type="date"
+                value={filters.fechaDesde}
+                onChange={e=>setFilters(f=>({...f,fechaDesde:e.target.value}))}
+                style={dateInp}
+              />
+            </div>
+
+            {/* Hasta */}
+            <div>
+              <label style={lbl}>Hasta</label>
+              <input
+                type="date"
+                value={filters.fechaHasta}
+                onChange={e=>setFilters(f=>({...f,fechaHasta:e.target.value}))}
+                style={dateInp}
+              />
+            </div>
+
+            {/* Turno */}
+            <div>
+              <label style={lbl}>Turno</label>
+              <select value={filters.turno} onChange={e=>setFilters(f=>({...f,turno:e.target.value}))} style={baseInp}>
+                <option value="">Todos</option>
+                <option value="Mañana">🌅 Mañana</option>
+                <option value="Tarde">🌇 Tarde</option>
+                <option value="Noche">🌙 Noche</option>
+              </select>
+              <div style={{fontSize:9,color:T.muted,marginTop:3,fontFamily:"'Inter',sans-serif",lineHeight:1.4}}>
+                Sem: M 06-14 · T 14-22 · N 22-06<br/>Finde: M 06-18 · N 18-06
               </div>
-            ))}
-            {[["categoria","Categoría","categorias"],["tipo","Tipo","tipos"]].map(([k,l,opt])=>(
-              <div key={k}>
-                <label style={lbl}>{l}</label>
-                <select value={filters[k]} onChange={e=>setFilters(f=>({...f,[k]:e.target.value}))} style={inp}>
-                  <option value="">Todos</option>
-                  {(options[opt]||[]).map(o=><option key={o} value={o}>{o}</option>)}
-                </select>
-              </div>
-            ))}
+            </div>
+
+            {/* Categoría */}
+            <div>
+              <label style={lbl}>Categoría</label>
+              <select value={filters.categoria} onChange={e=>setFilters(f=>({...f,categoria:e.target.value}))} style={baseInp}>
+                <option value="">Todas</option>
+                {(options.categorias||[]).map(o=><option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+
+            {/* Tipo */}
+            <div>
+              <label style={lbl}>Tipo</label>
+              <select value={filters.tipo} onChange={e=>setFilters(f=>({...f,tipo:e.target.value}))} style={baseInp}>
+                <option value="">Todos</option>
+                {(options.tipos||[]).map(o=><option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+
+            {/* Reset */}
             <div style={{display:"flex",alignItems:"flex-end"}}>
               <button
-                onClick={()=>setFilters({fechaDesde:firstOfMonthStr(),fechaHasta:todayStr(),cgm:"",categoria:"",tipo:""})}
+                onClick={()=>setFilters({fechaDesde:firstOfMonthStr(),fechaHasta:todayStr(),cgm:"",categoria:"",tipo:"",turno:""})}
                 style={{background:"rgba(139,92,246,0.12)",border:`1px solid ${T.border}`,color:T.text2,borderRadius:10,padding:"7px 14px",fontSize:11,fontFamily:"'Inter',sans-serif",cursor:"pointer",fontWeight:600,width:"100%"}}
               >
                 ↺ Resetear
               </button>
             </div>
+
           </div>
         </div>
       )}
@@ -568,6 +615,7 @@ export default function App() {
     if(filters.cgm&&r.cgm!==filters.cgm)return false;
     if(filters.categoria&&r.categoria!==filters.categoria)return false;
     if(filters.tipo&&r.tipo!==filters.tipo)return false;
+    if(filters.turno){const h=getHour(r.horario);if(getTurno(h,isFinde(r.fecha))!==filters.turno)return false;}
     return true;
   }),[allData,filters]);
 
@@ -576,6 +624,7 @@ export default function App() {
     if(filters.fechaHasta&&r.fecha>filters.fechaHasta)return false;
     if(filters.categoria&&r.categoria!==filters.categoria)return false;
     if(filters.tipo&&r.tipo!==filters.tipo)return false;
+    if(filters.turno){const h=getHour(r.horario);if(getTurno(h,isFinde(r.fecha))!==filters.turno)return false;}
     return true;
   }),[allData,filters]);
 
