@@ -22,7 +22,17 @@ function fmt(n) { if(n==null)return"—"; if(n>=1000000)return(n/1000000).toFixe
 function pct(a,b) { if(!b)return null; return(((a-b)/b)*100).toFixed(1); }
 function groupBy(arr,key) { return arr.reduce((acc,r)=>{const k=r[key]??"Sin dato";acc[k]=(acc[k]||0)+1;return acc},{}); }
 function topN(obj,n=10) { return Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,n); }
-function getTurno(h,finde) { if(h===null)return"Sin dato"; const c=finde?12:8; if(h>=6&&h<6+c)return"Mañana"; if(h>=6+c&&h<6+c*2)return"Tarde"; return"Noche"; }
+function getTurno(h, finde) {
+  if (h === null) return "Sin dato";
+  if (finde) {
+    // Finde: turnos de 12hs — Mañana 06-18, Noche 18-06
+    return (h >= 6 && h < 18) ? "Mañana" : "Noche";
+  }
+  // Semana: turnos de 8hs — Mañana 06-14, Tarde 14-22, Noche 22-06
+  if (h >= 6 && h < 14) return "Mañana";
+  if (h >= 14 && h < 22) return "Tarde";
+  return "Noche";
+}
 
 function todayStr() {
   const d = new Date();
@@ -511,6 +521,7 @@ export default function App() {
     cgm: "",
     categoria: "",
     tipo: "",
+    turno: "",
   });
   const [loadProgress, setLoadProgress] = useState(0);
   const [leafletReady, setLeafletReady] = useState(false);
