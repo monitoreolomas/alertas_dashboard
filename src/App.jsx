@@ -194,7 +194,7 @@ function FiltersPanel({ filters, setFilters, options, open, setOpen }) {
       </button>
       {open && (
         <div style={{padding:"0 18px 16px",borderTop:`1px solid rgba(139,92,246,0.1)`}}>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(155px,1fr))",gap:14,paddingTop:14}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:14,paddingTop:14,alignItems:"end"}}>
 
             {/* Desde */}
             <div>
@@ -220,16 +220,18 @@ function FiltersPanel({ filters, setFilters, options, open, setOpen }) {
 
             {/* Turno */}
             <div>
-              <label style={lbl}>Turno</label>
+              <label style={lbl}>
+                Turno
+                <span style={{fontSize:9,color:T.muted,fontWeight:400,letterSpacing:0,textTransform:"none",marginLeft:6}}>
+                  sem 8hs · finde 12hs
+                </span>
+              </label>
               <select value={filters.turno} onChange={e=>setFilters(f=>({...f,turno:e.target.value}))} style={baseInp}>
                 <option value="">Todos</option>
-                <option value="Mañana">🌅 Mañana</option>
-                <option value="Tarde">🌇 Tarde</option>
-                <option value="Noche">🌙 Noche</option>
+                <option value="Mañana">Mañana</option>
+                <option value="Tarde">Tarde</option>
+                <option value="Noche">Noche</option>
               </select>
-              <div style={{fontSize:9,color:T.muted,marginTop:3,fontFamily:"'Inter',sans-serif",lineHeight:1.4}}>
-                Sem: M 06-14 · T 14-22 · N 22-06<br/>Finde: M 06-18 · N 18-06
-              </div>
             </div>
 
             {/* Categoría */}
@@ -250,15 +252,13 @@ function FiltersPanel({ filters, setFilters, options, open, setOpen }) {
               </select>
             </div>
 
-            {/* Reset */}
-            <div style={{display:"flex",alignItems:"flex-end"}}>
-              <button
-                onClick={()=>setFilters({fechaDesde:firstOfMonthStr(),fechaHasta:todayStr(),cgm:"",categoria:"",tipo:"",turno:""})}
-                style={{background:"rgba(139,92,246,0.12)",border:`1px solid ${T.border}`,color:T.text2,borderRadius:10,padding:"7px 14px",fontSize:11,fontFamily:"'Inter',sans-serif",cursor:"pointer",fontWeight:600,width:"100%"}}
-              >
-                ↺ Resetear
-              </button>
-            </div>
+            {/* Reset — alignItems:"end" en el grid lo alinea al fondo igual que los inputs */}
+            <button
+              onClick={()=>setFilters({fechaDesde:firstOfMonthStr(),fechaHasta:todayStr(),cgm:"",categoria:"",tipo:"",turno:""})}
+              style={{background:"rgba(139,92,246,0.12)",border:`1px solid ${T.border}`,color:T.text2,borderRadius:10,padding:"7px 14px",fontSize:11,fontFamily:"'Inter',sans-serif",cursor:"pointer",fontWeight:600,width:"100%",height:34}}
+            >
+              ↺ Resetear
+            </button>
 
           </div>
         </div>
@@ -655,12 +655,25 @@ export default function App() {
         ::-webkit-scrollbar-track{background:${T.bg};}
         ::-webkit-scrollbar-thumb{background:rgba(139,92,246,0.3);border-radius:3px;}
         ::-webkit-scrollbar-thumb:hover{background:rgba(139,92,246,0.5);}
+
+        @media print {
+          @page { size: A4 landscape; margin: 12mm 10mm; }
+          body { background: #fff !important; color: #111 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          .no-print { display: none !important; }
+          /* forzar colores de fondo en cards y KPIs */
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          /* encabezado de impresión con resumen de filtros */
+          .print-header { display: block !important; }
+          /* ocultar mapa leaflet en print (no renderiza bien) */
+          .cgm-dark-tiles { display: none; }
+        }
+        .print-header { display: none; }
       `}</style>
 
       <div style={{minHeight:"100vh",background:T.bg,color:T.text,fontFamily:"'Inter',sans-serif"}}>
 
         {/* ── HEADER ── */}
-        <div style={{
+        <div className="no-print" style={{
           background:`linear-gradient(90deg,${T.bg2} 0%,#1a1535 50%,${T.bg2} 100%)`,
           border:`1px solid ${T.border}`,
           borderRadius:16,
@@ -700,10 +713,12 @@ export default function App() {
           {error&&<div style={{background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.3)",borderRadius:10,padding:"10px 14px",color:"#fca5a5",fontSize:12,marginBottom:14}}>⚠ Error Supabase: {error}</div>}
 
           {/* ── FILTROS ── */}
-          <FiltersPanel filters={filters} setFilters={setFilters} options={options} open={filtersOpen} setOpen={setFiltersOpen}/>
+          <div className="no-print">
+            <FiltersPanel filters={filters} setFilters={setFilters} options={options} open={filtersOpen} setOpen={setFiltersOpen}/>
+          </div>
 
-          {/* ── TABS + ZONA ACTIVA ── */}
-          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:20,flexWrap:"wrap"}}>
+          {/* ── TABS + ZONA ACTIVA + PDF ── */}
+          <div className="no-print" style={{display:"flex",alignItems:"center",gap:6,marginBottom:20,flexWrap:"wrap"}}>
             {TABS.map(t=>{
               const isActive = view===t.id;
               return (
@@ -728,13 +743,39 @@ export default function App() {
                 </button>
               );
             })}
-            {filters.cgm && (
-              <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:8}}>
-                <span style={{fontSize:10,color:T.muted,fontWeight:600}}>ZONA:</span>
-                <span style={{fontSize:11,color:T.accent,fontWeight:700,background:"rgba(139,92,246,0.15)",padding:"3px 12px",borderRadius:20,border:`1px solid rgba(139,92,246,0.3)`}}>{filters.cgm}</span>
-                <button onClick={()=>setFilters(f=>({...f,cgm:""}))} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:14,lineHeight:1,padding:"2px 4px"}}>✕</button>
-              </div>
-            )}
+
+            <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:8}}>
+              {filters.cgm && (
+                <>
+                  <span style={{fontSize:10,color:T.muted,fontWeight:600}}>ZONA:</span>
+                  <span style={{fontSize:11,color:T.accent,fontWeight:700,background:"rgba(139,92,246,0.15)",padding:"3px 12px",borderRadius:20,border:`1px solid rgba(139,92,246,0.3)`}}>{filters.cgm}</span>
+                  <button onClick={()=>setFilters(f=>({...f,cgm:""}))} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:14,lineHeight:1,padding:"2px 4px"}}>✕</button>
+                </>
+              )}
+              {/* PDF export */}
+              <button
+                className="no-print"
+                onClick={()=>window.print()}
+                style={{
+                  background:`rgba(139,92,246,0.15)`,
+                  border:`1px solid ${T.accent}`,
+                  color:T.accent,
+                  borderRadius:10,
+                  padding:"8px 16px",
+                  fontSize:11,
+                  fontFamily:"'Inter',sans-serif",
+                  fontWeight:700,
+                  cursor:"pointer",
+                  display:"flex",
+                  alignItems:"center",
+                  gap:6,
+                  letterSpacing:"0.05em",
+                  transition:"all 0.15s",
+                }}
+              >
+                ⬇ EXPORTAR PDF
+              </button>
+            </div>
           </div>
 
           {/* ── CONTENIDO ── */}
@@ -757,6 +798,21 @@ export default function App() {
               )}
             </>
           )}
+
+          {/* ── ENCABEZADO SOLO VISIBLE AL IMPRIMIR ── */}
+          <div className="print-header" style={{marginBottom:16,paddingBottom:10,borderBottom:"2px solid #8b5cf6"}}>
+            <div style={{fontSize:18,fontWeight:800,color:"#111"}}>Centro de Gestión Municipal · Lomas de Zamora</div>
+            <div style={{fontSize:11,color:"#555",marginTop:4}}>
+              Análisis Operativo de Alertas &nbsp;·&nbsp;
+              Período: {filters.fechaDesde||"–"} → {filters.fechaHasta||"–"} &nbsp;·&nbsp;
+              {filters.cgm ? `Zona: ${filters.cgm} · ` : ""}
+              {filters.categoria ? `Categoría: ${filters.categoria} · ` : ""}
+              {filters.turno ? `Turno: ${filters.turno} · ` : ""}
+              {filters.tipo ? `Tipo: ${filters.tipo} · ` : ""}
+              {filteredData.length.toLocaleString()} registros &nbsp;·&nbsp;
+              Generado: {new Date().toLocaleString("es-AR")}
+            </div>
+          </div>
 
           {/* ── FOOTER ── */}
           <div style={{textAlign:"center",color:T.muted,fontSize:10,marginTop:24,padding:"8px 0",borderTop:`1px solid rgba(139,92,246,0.08)`}}>
