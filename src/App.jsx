@@ -626,65 +626,60 @@ function ViewUsuarios() {
   const [userFiltersOpen, setUserFiltersOpen] = useState(false);
 
   // ── FIX 1: Carga paralela ──────────────────────────────────────────────────
-  async function cargarUsuarios() {
-    const token = window._novitToken || localStorage.getItem("novit_token") || sessionStorage.getItem("novit_token");
-    if (!token) { setEstado("sin_token"); return; }
-    setEstado("cargando");
-    try {
-      const populate = JSON.stringify([
-        { path:"cliente", select:"idCategoriaDefault categoriaDefault", populate:{ path:"categoriaDefault", select:"nombre" } },
-        { path:"categoria.categoria", select:"nombre" },
-        { path:"categoria.usuario", select:"usuario" },
-        { path:"direccion.localidad", select:"nombre" },
-        { path:"direccion.barrio", select:"nombre" },
-      ]);
-      const filter = JSON.stringify({ $and:[{ activo:"true" }] });
-      const limit = 500;
+async function cargarUsuarios() {
+  const token = window._novitToken || localStorage.getItem("novit_token") || sessionStorage.getItem("novit_token");
+  if (!token) { setEstado("sin_token"); return; }
+  setEstado("cargando");
+  try {
+    const populate = JSON.stringify([
+      { path:"cliente", select:"idCategoriaDefault categoriaDefault", populate:{ path:"categoriaDefault", select:"nombre" } },
+      { path:"categoria.categoria", select:"nombre" },
+      { path:"categoria.usuario", select:"usuario" },
+      { path:"direccion.localidad", select:"nombre" },
+      { path:"direccion.barrio", select:"nombre" },
+    ]);
+    const filter = JSON.stringify({ $and:[{ activo:"true" }] });
+    const limit = 500;
 
-      // Primera página: obtener total
-      const firstUrl =
-        `${VECINOS_API}` +
-        `?limit=${limit}` +
-        `&page=1` +
-        `&sort=-fechaCreacion` +
-        `&populate=${encodeURIComponent(populate)}` +
-        `&filter=${encodeURIComponent(filter)}`;
+    const buildUrl = (page) =>
+      `${VECINOS_API}?limit=${limit}&page=${page}&sort=-fechaCreacion` +
+      `&populate=${encodeURIComponent(populate)}&filter=${encodeURIComponent(filter)}`;
 
-      const firstRes = await fetch(firstUrl, { headers: { Authorization: `Bearer ${token}` } });
-      if (!firstRes.ok) throw new Error(`HTTP ${firstRes.status}`);
-      const firstJson = await firstRes.json();
+    const headers = { Authorization: `Bearer ${token}` };
 
-      const total = firstJson.totalCount || (firstJson.datos || []).length;
-      const totalPages = Math.ceil(total / limit);
+    // Primera página para conocer el total
+    const firstRes = await fetch(buildUrl(1), { headers });
+    if (!firstRes.ok) throw new Error(`HTTP ${firstRes.status} en página 1`);
+    const firstJson = await firstRes.json();
+    const totalCount = firstJson.totalCount || (firstJson.datos || []).length;
+    const totalPages = Math.ceil(totalCount / limit);
 
-      // Páginas restantes en paralelo
-      const remainingPages = Array.from({ length: totalPages - 1 }, (_, i) => i + 2);
-      const restResults = await Promise.all(
-        remainingPages.map(page => {
-          const url =
-            `${VECINOS_API}` +
-            `?limit=${limit}` +
-            `&page=${page}` +
-            `&sort=-fechaCreacion` +
-            `&populate=${encodeURIComponent(populate)}` +
-            `&filter=${encodeURIComponent(filter)}`;
-          return fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-            .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-            .then(j => j.datos || []);
-        })
-      );
+    let allUsuarios = [...(firstJson.datos || [])];
 
-      const allUsuarios = [...(firstJson.datos || []), ...restResults.flat()];
-
-      setTotalCount(total);
-      setUsuarios(allUsuarios);
-      setUltimaActualizacion(new Date().toLocaleTimeString("es-AR"));
-      setEstado("ok");
-    } catch(e) {
-      console.error(e);
-      setEstado("error");
+    // Páginas restantes en lotes de 3 para no saturar el servidor
+    const BATCH = 3;
+    for (let page = 2; page <= totalPages; page += BATCH) {
+      const batch = [];
+      for (let p = page; p < page + BATCH && p <= totalPages; p++) {
+        batch.push(
+          fetch(buildUrl(p), { headers })
+            .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status} en página ${p}`); return r.json(); })
+            .then(j => j.datos || [])
+        );
+      }
+      const results = await Promise.all(batch);
+      allUsuarios = [...allUsuarios, ...results.flat()];
     }
+
+    setTotalCount(totalCount);
+    setUsuarios(allUsuarios);
+    setUltimaActualizacion(new Date().toLocaleTimeString("es-AR"));
+    setEstado("ok");
+  } catch(e) {
+    console.error("Error cargando usuarios:", e);
+    setEstado("error");
   }
+}
 
   useEffect(() => { cargarUsuarios(); }, []);
 
