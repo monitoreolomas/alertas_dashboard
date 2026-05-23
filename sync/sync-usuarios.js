@@ -94,24 +94,20 @@ function normalizar(u) {
   const fechaCreacion = u?.fechaCreacion || null;
   const fechaActualizacion = u?.fechaActualizacion || u?.updatedAt || null;
 
-  return {
-    id:                   u._id,
-  usuario:              limpiarTexto(u.usuario),
-  nombre:               limpiarTexto(u?.datosPersonales?.nombre),
-  apellido:             limpiarTexto(u?.datosPersonales?.apellido),
-    sexo:                 u?.datosPersonales?.sexo ?? null,   // true/false/null
-    fecha_nacimiento:     fechaNac,
-    dni_escaneado:        u?.dniEscaneado === true || u?.dniEscaneado === "true",
-  categoria_nombre:     limpiarTexto(categoriaNombre),
-  localidad:            limpiarTexto(u?.direccion?.localidad?.nombre || u?.localidad),
-  barrio:               limpiarTexto(u?.direccion?.barrio?.nombre),
-  app_type:             limpiarTexto(u?.appType),
-    activo:               u?.activo === true || u?.activo === "true",
-    fecha_creacion:       fechaCreacion,
-    fecha_actualizacion:  fechaActualizacion,
-    synced_at:            new Date().toISOString(),
+  const fila = {
+    id, usuario, nombre, apellido, sexo,
+    fecha_nacimiento: fechaNac,
+    dni_escaneado: u?.dniEscaneado === true || u?.dniEscaneado === "true",
+    categoria_nombre: limpiarTexto(categoriaNombre),
+    localidad: limpiarTexto(u?.direccion?.localidad?.nombre || u?.localidad),
+    barrio: limpiarTexto(u?.direccion?.barrio?.nombre),
+    app_type: limpiarTexto(u?.appType),
+    activo: u?.activo === true || u?.activo === "true",
+    fecha_creacion: fechaCreacion,
+    fecha_actualizacion: fechaActualizacion,
+    synced_at: new Date().toISOString(),
   };
-}
+  return sanitizarFila(fila);
 
 // ─── Fetch paginado con reintentos ────────────────────────────────────────────
 async function fetchPage(page, fechaDesde, intentos = 3) {
