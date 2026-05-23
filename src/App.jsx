@@ -929,12 +929,13 @@ function ViewUsuarios() {
   // Categoría especial
   const categorias = {};
   usuarios.forEach(u => {
-    const cats = u.categoria || [];
+    const rawCat = u.categoria;
+    const cats = Array.isArray(rawCat) ? rawCat : (rawCat ? [rawCat] : []);
     if (!cats.length) {
       categorias["Sin categoría"] = (categorias["Sin categoría"] || 0) + 1;
     } else {
       cats.forEach(c => {
-        const nombre = c.categoria?.nombre || "Sin dato";
+        const nombre = c?.categoria?.nombre || c?.nombre || "Sin dato";
         categorias[nombre] = (categorias[nombre] || 0) + 1;
       });
     }
@@ -1109,7 +1110,9 @@ function ViewUsuarios() {
                 const plat = u.tipoDispositivo || u.dispositivo || "—";
                 const dniOk = u.dniEscaneado === true || u.dniEscaneado === "true";
                 const fechaAlta = u.fechaCreacion ? new Date(u.fechaCreacion).toLocaleDateString("es-AR") : "—";
-                const cats = (u.categoria || []).map(c => c.categoria?.nombre).filter(Boolean).join(", ") || "—";
+                const rawCatRow = u.categoria;
+                const catsArr = Array.isArray(rawCatRow) ? rawCatRow : (rawCatRow ? [rawCatRow] : []);
+                const cats = catsArr.map(c => c?.categoria?.nombre || c?.nombre).filter(Boolean).join(", ") || "—";
                 const sexoLabel = u.sexo === "M" ? "♂ M" : u.sexo === "F" ? "♀ F" : u.sexo || "—";
                 return (
                   <tr key={i} style={{ borderBottom: `1px solid rgba(255,255,255,0.04)`, transition: "background 0.1s" }}>
