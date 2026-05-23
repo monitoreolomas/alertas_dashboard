@@ -25,22 +25,17 @@ function getHour(h) { if (!h) return null; return parseInt(h.split(":")[0], 10);
 
 function parseFecha(fechaStr) {
   if (!fechaStr) return null;
-
   const fecha = new Date(fechaStr);
-
   if (isNaN(fecha.getTime())) return null;
-
   return fecha;
 }
 
 function parseFiltroDate(fechaStr) {
   if (!fechaStr) return null;
-
   if (fechaStr.includes("/")) {
     const [d, m, y] = fechaStr.split("/").map(Number);
     return new Date(y, m - 1, d);
   }
-
   return new Date(fechaStr);
 }
 
@@ -177,7 +172,6 @@ function HBar({ label, value, max, color, total }) {
   );
 }
 
-// FIX 1: Use Fragment (imported) instead of React.Fragment
 function Heatmap({ matrix, rowLabels, colLabels }) {
   const max = Math.max(...matrix.flat(),1);
   return (
@@ -631,6 +625,7 @@ function ViewUsuarios() {
   });
   const [userFiltersOpen, setUserFiltersOpen] = useState(false);
 
+  // ── FIX 1: Carga paralela ──────────────────────────────────────────────────
   async function cargarUsuarios() {
     const token = window._novitToken || localStorage.getItem("novit_token") || sessionStorage.getItem("novit_token");
     if (!token) { setEstado("sin_token"); return; }
@@ -644,61 +639,55 @@ function ViewUsuarios() {
         { path:"direccion.barrio", select:"nombre" },
       ]);
       const filter = JSON.stringify({ $and:[{ activo:"true" }] });
-      let allUsuarios = [];
-      let page = 1;
       const limit = 500;
-      let totalCount = 0;
 
-      while (true) {
-        const url =
-          `${VECINOS_API}` +
-          `?limit=${limit}` +
-          `&page=${page}` +
-          `&sort=-fechaCreacion` +
-          `&populate=${encodeURIComponent(populate)}` +
-          `&filter=${encodeURIComponent(filter)}`;
+      // Primera página: obtener total
+      const firstUrl =
+        `${VECINOS_API}` +
+        `?limit=${limit}` +
+        `&page=1` +
+        `&sort=-fechaCreacion` +
+        `&populate=${encodeURIComponent(populate)}` +
+        `&filter=${encodeURIComponent(filter)}`;
 
-        const res = await fetch(url, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+      const firstRes = await fetch(firstUrl, { headers: { Authorization: `Bearer ${token}` } });
+      if (!firstRes.ok) throw new Error(`HTTP ${firstRes.status}`);
+      const firstJson = await firstRes.json();
 
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
-        }
+      const total = firstJson.totalCount || (firstJson.datos || []).length;
+      const totalPages = Math.ceil(total / limit);
 
-        const json = await res.json();
+      // Páginas restantes en paralelo
+      const remainingPages = Array.from({ length: totalPages - 1 }, (_, i) => i + 2);
+      const restResults = await Promise.all(
+        remainingPages.map(page => {
+          const url =
+            `${VECINOS_API}` +
+            `?limit=${limit}` +
+            `&page=${page}` +
+            `&sort=-fechaCreacion` +
+            `&populate=${encodeURIComponent(populate)}` +
+            `&filter=${encodeURIComponent(filter)}`;
+          return fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+            .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+            .then(j => j.datos || []);
+        })
+      );
 
-        const chunk = json.datos || [];
+      const allUsuarios = [...(firstJson.datos || []), ...restResults.flat()];
 
-        totalCount = json.totalCount || chunk.length;
-
-        allUsuarios = [...allUsuarios, ...chunk];
-
-        if (allUsuarios.length >= totalCount) {
-          break;
-        }
-
-        if (chunk.length === 0) {
-          break;
-        }
-
-        page++;
-      }
-
-      setTotalCount(totalCount);
+      setTotalCount(total);
       setUsuarios(allUsuarios);
       setUltimaActualizacion(new Date().toLocaleTimeString("es-AR"));
       setEstado("ok");
     } catch(e) {
+      console.error(e);
       setEstado("error");
     }
   }
 
   useEffect(() => { cargarUsuarios(); }, []);
 
-  // FIX 2: usuariosNormalizados as useMemo so it's a stable reference for downstream memos
   const usuariosNormalizados = useMemo(() => usuarios.map(u => {
     const sexo = getSexoLabel(u?.datosPersonales?.sexo);
     const edad = calcularEdad(u?.datosPersonales?.fechaNacimiento);
@@ -726,31 +715,23 @@ function ViewUsuarios() {
     };
   }), [usuarios]);
 
-  // FIX 2 cont: now usuariosNormalizados is stable, this useMemo works correctly
   const usuariosFiltrados = useMemo(() => {
     return usuariosNormalizados.filter((u) => {
       const fecha = new Date(u.fechaCreacion);
-
       if (isNaN(fecha.getTime())) return false;
 
       if (userFilters.fechaDesde) {
         const desde = parseFiltroDate(userFilters.fechaDesde);
-
         if (fecha < desde) return false;
       }
 
       if (userFilters.fechaHasta) {
         const hasta = parseFiltroDate(userFilters.fechaHasta);
-
         hasta.setHours(23, 59, 59, 999);
-
         if (fecha > hasta) return false;
       }
 
-      if (
-        userFilters.cgm &&
-        u.localidadNombre !== userFilters.cgm
-      ) {
+      if (userFilters.cgm && u.localidadNombre !== userFilters.cgm) {
         return false;
       }
 
@@ -787,6 +768,8 @@ function ViewUsuarios() {
 
   const total  = totalCount ?? usuarios.length;
   const muestra = usuarios.length;
+  const filteredCount = usuariosFiltrados.length;
+  const ahora = new Date();
 
   // ── Edades ─────────────────────────────────────────────────────────────────
   const edadesValidas = usuariosFiltrados
@@ -844,12 +827,24 @@ function ViewUsuarios() {
   const altasEntries = Object.entries(altasPorFecha).sort((a,b) => a[0].localeCompare(b[0]));
   const altasVals = altasEntries.map(([,v]) => v);
 
-  const ahora = new Date();
-  const altasMes = usuariosFiltrados.filter(u => {
-    if (!u.fechaCreacion) return false;
-    const f = new Date(u.fechaCreacion);
-    return f.getMonth() === ahora.getMonth() && f.getFullYear() === ahora.getFullYear();
-  }).length;
+  // ── FIX 2: "Altas del período" respeta el filtro de fechas ─────────────────
+  // Si hay filtro de fechas activo → mostramos el total del período filtrado
+  // Si no hay filtro              → mostramos solo el mes actual del sistema
+  const hayFiltroFecha = !!(userFilters.fechaDesde || userFilters.fechaHasta);
+
+  const altasMes = hayFiltroFecha
+    ? filteredCount   // todos los filtrados ya están dentro del rango
+    : usuariosFiltrados.filter(u => {
+        if (!u.fechaCreacion) return false;
+        const f = new Date(u.fechaCreacion);
+        if (isNaN(f)) return false;
+        return f.getMonth() === ahora.getMonth() && f.getFullYear() === ahora.getFullYear();
+      }).length;
+
+  const kpiAltasLabel = hayFiltroFecha ? "Altas en el Período" : "Altas Este Mes";
+  const kpiAltasSub   = hayFiltroFecha
+    ? `${userFilters.fechaDesde || "–"} → ${userFilters.fechaHasta || "–"}`
+    : `de ${filteredCount.toLocaleString()} en muestra`;
 
   // ── Últimos registrados ───────────────────────────────────────────────────
   const recientes = [...usuariosFiltrados].sort((a,b) => new Date(b.fechaCreacion) - new Date(a.fechaCreacion));
@@ -877,7 +872,6 @@ function ViewUsuarios() {
   const dateInp = { ...baseInp, colorScheme:"dark" };
   const lbl = {fontSize:11,color:T.text2,fontWeight:600,letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:5,fontFamily:"'Inter',sans-serif",display:"block"};
   const hasActiveFilters = userFilters.fechaDesde || userFilters.fechaHasta || userFilters.cgm;
-  const filteredCount = usuariosFiltrados.length;
 
   const localidadOptions = [...new Set(usuariosNormalizados.map(u => u.localidadNombre).filter(l => l && l !== "Sin dato"))].sort();
 
@@ -900,21 +894,21 @@ function ViewUsuarios() {
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 2fr auto",gap:14,alignItems:"end"}}>
               <div>
                 <label style={lbl}>Alta desde</label>
-                <input type="date" value={userFilters.fechaDesde} onChange={e=>setUserFilters(f=>({...f,fechaDesde:e.target.value}))} style={dateInp}/>
+                <input type="date" value={userFilters.fechaDesde} onChange={e=>{ setUserFilters(f=>({...f,fechaDesde:e.target.value})); setPaginaRecientes(0); }} style={dateInp}/>
               </div>
               <div>
                 <label style={lbl}>Alta hasta</label>
-                <input type="date" value={userFilters.fechaHasta} onChange={e=>setUserFilters(f=>({...f,fechaHasta:e.target.value}))} style={dateInp}/>
+                <input type="date" value={userFilters.fechaHasta} onChange={e=>{ setUserFilters(f=>({...f,fechaHasta:e.target.value})); setPaginaRecientes(0); }} style={dateInp}/>
               </div>
               <div>
                 <label style={lbl}>Localidad / CGM</label>
-                <select value={userFilters.cgm} onChange={e=>setUserFilters(f=>({...f,cgm:e.target.value}))} style={baseInp}>
+                <select value={userFilters.cgm} onChange={e=>{ setUserFilters(f=>({...f,cgm:e.target.value})); setPaginaRecientes(0); }} style={baseInp}>
                   <option value="">Todas</option>
                   {localidadOptions.map(l => <option key={l} value={l}>{l}</option>)}
                 </select>
               </div>
               <button
-                onClick={()=>setUserFilters({fechaDesde:"",fechaHasta:"",cgm:""})}
+                onClick={()=>{ setUserFilters({fechaDesde:"",fechaHasta:"",cgm:""}); setPaginaRecientes(0); }}
                 style={{background:"rgba(139,92,246,0.12)",border:`1px solid ${T.border}`,color:T.text2,borderRadius:10,padding:"7px 14px",fontSize:11,fontFamily:"'Inter',sans-serif",cursor:"pointer",fontWeight:600,height:34,whiteSpace:"nowrap"}}
               >↺ Resetear</button>
             </div>
@@ -934,10 +928,11 @@ function ViewUsuarios() {
 
       {/* KPIs */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(175px,1fr))",gap:12,marginBottom:20}}>
-        <KPI label="Usuarios Totales" value={fmt(total)} sub="en el sistema (sin filtro)" color={T.accent} icon="👥"/>
-        <KPI label="Altas Este Mes"   value={fmt(altasMes)} sub={hasActiveFilters?"en filtro seleccionado":`de ${filteredCount} en muestra`} color={T.green} icon="📈"/>
-        <KPI label="Edad Promedio"    value={edadProm!=="—"?`${edadProm} años`:"—"} sub={edadesValidas.length>0?`mín ${edadMin} · máx ${edadMax} · ${edadesValidas.length} con edad válida`:"Solo edades 18–100"} color="#38bdf8" icon="🎂"/>
-        <KPI label="Con DNI Escaneado" value={filteredCount>0?`${((conDni/filteredCount)*100).toFixed(0)}%`:"—"} sub={`${fmt(conDni)} de ${fmt(filteredCount)}`} color={T.amber} icon="🪪"/>
+        <KPI label="Usuarios Totales"   value={fmt(total)}    sub="en el sistema (sin filtro)"                      color={T.accent}  icon="👥"/>
+        {/* FIX 2: label y valor dinámicos según filtro */}
+        <KPI label={kpiAltasLabel}      value={fmt(altasMes)} sub={kpiAltasSub}                                     color={T.green}   icon="📈"/>
+        <KPI label="Edad Promedio"      value={edadProm!=="—"?`${edadProm} años`:"—"} sub={edadesValidas.length>0?`mín ${edadMin} · máx ${edadMax} · ${edadesValidas.length} con edad válida`:"Solo edades 18–100"} color="#38bdf8" icon="🎂"/>
+        <KPI label="Con DNI Escaneado"  value={filteredCount>0?`${((conDni/filteredCount)*100).toFixed(0)}%`:"—"}  sub={`${fmt(conDni)} de ${fmt(filteredCount)}`} color={T.amber} icon="🪪"/>
       </div>
 
       {/* Fila 1 */}
