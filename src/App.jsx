@@ -808,7 +808,26 @@ function MiniDonut({ segments, size = 80 }) {
     </svg>
   );
 }
+function getSexoLabel(sexo) {
+  if (sexo === true) return "M";
+  if (sexo === false) return "F";
+  return "Sin dato";
+}
 
+function calcularEdad(fechaNacimiento) {
+  if (!fechaNacimiento) return null;
+  const hoy = new Date();
+  const fn = new Date(fechaNacimiento);
+
+  let edad = hoy.getFullYear() - fn.getFullYear();
+  const m = hoy.getMonth() - fn.getMonth();
+
+  if (m < 0 || (m === 0 && hoy.getDate() < fn.getDate())) {
+    edad--;
+  }
+
+  return edad;
+}
 function ViewUsuarios() {
   const [estado, setEstado] = useState("idle"); // idle | sin_token | cargando | ok | error
   const [usuarios, setUsuarios] = useState([]);
@@ -887,7 +906,33 @@ function ViewUsuarios() {
   const muestra = usuarios.length;
 
   // Edad
-  const edades = usuarios.map(u => u.edad).filter(e => e != null && !isNaN(e));
+  const usuariosNormalizados = usuarios.map(u => {
+  const sexo = getSexoLabel(u?.datosPersonales?.sexo);
+
+  let categoriaNombre = "Sin categoría";
+  if (u?.categoria?.categoria?.nombre) {
+    categoriaNombre = u.categoria.categoria.nombre;
+  } else if (u?.cliente?.categoriaDefault?.nombre) {
+    categoriaNombre = u.cliente.categoriaDefault.nombre;
+  }
+
+  const edad = calcularEdad(u?.datosPersonales?.fechaNacimiento);
+
+  return {
+    ...u,
+    nombre: u?.datosPersonales?.nombre || "",
+    apellido: u?.datosPersonales?.apellido || "",
+    sexo,
+    edad,
+    categoriaFix: categoriaNombre,
+    plataforma: u.appType || "Sin dato"
+  };
+});
+
+const edades = usuariosNormalizados
+  .map(u => u.edad)
+  .filter(e => e != null && !isNaN(e));
+
   const edadProm = edades.length ? (edades.reduce((a, b) => a + b, 0) / edades.length).toFixed(1) : "—";
   const edadMin = edades.length ? Math.min(...edades) : "—";
   const edadMax = edades.length ? Math.max(...edades) : "—";
@@ -899,8 +944,10 @@ function ViewUsuarios() {
   })).filter(r => r.value > 0);
 
   // Sexo
-  const porSexo = usuarios.reduce((acc, u) => {
-    const s = u.sexo || "Sin dato";
+
+const porSexo = usuariosNormalizados.reduce((acc, u) => {
+  const s = u.sexo;
+
     acc[s] = (acc[s] || 0) + 1;
     return acc;
   }, {});
@@ -916,8 +963,10 @@ function ViewUsuarios() {
   const locMax = Math.max(...topLocalidades.map(([, v]) => v), 1);
 
   // Plataforma
-  const porPlataforma = usuarios.reduce((acc, u) => {
-    const p = u.tipoDispositivo || u.dispositivo || "Sin dato";
+
+const porPlataforma = usuariosNormalizados.reduce((acc, u) => {
+  const p = u.plataforma;
+
     acc[p] = (acc[p] || 0) + 1;
     return acc;
   }, {});
@@ -927,8 +976,13 @@ function ViewUsuarios() {
   const sinDni = muestra - conDni;
 
   // Categoría especial
-  const categorias = {};
-  usuarios.forEach(u => {
+
+const categorias = {};
+usuariosNormalizados.forEach(u => {
+  const nombre = u.categoriaFix || "Sin categoría";
+  categorias[nombre] = (categorias[nombre] || 0) + 1;
+});
+
     const rawCat = u.categoria;
     const cats = Array.isArray(rawCat) ? rawCat : (rawCat ? [rawCat] : []);
     if (!cats.length) {
@@ -952,7 +1006,10 @@ function ViewUsuarios() {
   const altasVals = altasEntries.map(([, v]) => v);
 
   // Últimos registrados
-  const recientes = [...usuarios].sort((a, b) => new Date(b.fechaCreacion) - new Date(a.fechaCreacion));
+
+const recientes = [...usuariosNormalizados]
+  .sort((a, b) => new Date(b.fechaCreacion) - new Date(a.fechaCreacion));
+
   const pageStart = paginaRecientes * POR_PAGINA;
   const recientesPagina = recientes.slice(pageStart, pageStart + POR_PAGINA);
   const totalPaginas = Math.ceil(recientes.length / POR_PAGINA);
@@ -971,7 +1028,15 @@ function ViewUsuarios() {
   // Mes actual
   const ahora = new Date();
   const mesActual = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, "0")}`;
-  const altasMes = usuarios.filter(u => u.fechaCreacion?.startsWith(mesActual)).length;
+const altasMes = usuariosNormalizados.filter(u => {
+  if (!u.fechaCreacion) return false;
+  const f = new Date(u.fechaCreacion);
+  return (
+    f.getMonth() === new Date().getMonth() &&
+    f.getFullYear() === new Date().getFullYear()
+  );
+}).length;
+
 
   return (
     <div>
@@ -1105,7 +1170,7 @@ function ViewUsuarios() {
             </thead>
             <tbody>
               {recientesPagina.map((u, i) => {
-                const nombre = [u.nombre, u.apellido].filter(Boolean).join(" ") || u.usuario || "Sin nombre";
+                const nombre = [u.nombre, u.apellido].filter(Boolean).join(" ") || "Sin nombre";
                 const localidad = u.direccion?.localidad?.nombre || u.localidad || "—";
                 const plat = u.tipoDispositivo || u.dispositivo || "—";
                 const dniOk = u.dniEscaneado === true || u.dniEscaneado === "true";
@@ -1113,7 +1178,7 @@ function ViewUsuarios() {
                 const rawCatRow = u.categoria;
                 const catsArr = Array.isArray(rawCatRow) ? rawCatRow : (rawCatRow ? [rawCatRow] : []);
                 const cats = catsArr.map(c => c?.categoria?.nombre || c?.nombre).filter(Boolean).join(", ") || "—";
-                const sexoLabel = u.sexo === "M" ? "♂ M" : u.sexo === "F" ? "♀ F" : u.sexo || "—";
+                const sexoLabel = u.sexo === "M" ? "♂ M" : u.sexo === "F" ? "♀ F" : "—";
                 return (
                   <tr key={i} style={{ borderBottom: `1px solid rgba(255,255,255,0.04)`, transition: "background 0.1s" }}>
                     <td style={{ padding: "6px 8px", color: T.text, maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nombre}</td>
