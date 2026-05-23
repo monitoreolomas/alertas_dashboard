@@ -633,38 +633,49 @@ function ViewUsuarios() {
       ]);
       const filter = JSON.stringify({ $and:[{ activo:"true" }] });
       let allUsuarios = [];
-      let offset = 0;
+      let page = 1;
       const limit = 500;
-      let hasMore = true;
       let totalCount = 0;
 
-      while (hasMore) {
-        const url = `${VECINOS_API}?limit=${limit}&offset=${offset}&sort=-fechaCreacion&populate=${encodeURIComponent(populate)}&filter=${encodeURIComponent(filter)}`;
+      while (true) {
+        const url =
+          `${VECINOS_API}` +
+          `?limit=${limit}` +
+          `&page=${page}` +
+          `&sort=-fechaCreacion` +
+          `&populate=${encodeURIComponent(populate)}` +
+          `&filter=${encodeURIComponent(filter)}`;
 
         const res = await fetch(url, {
-          headers:{ Authorization:`Bearer ${token}` }
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         });
 
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
 
         const json = await res.json();
 
-        if (!totalCount) {
-          totalCount = json.totalCount ?? 0;
-        }
-
         const chunk = json.datos || [];
+
+        totalCount = json.totalCount || chunk.length;
 
         allUsuarios = [...allUsuarios, ...chunk];
 
-        if (chunk.length < limit) {
-          hasMore = false;
-        } else {
-          offset += limit;
+        if (allUsuarios.length >= totalCount) {
+          break;
         }
+
+        if (chunk.length === 0) {
+          break;
+        }
+
+        page++;
       }
 
-      setTotalCount(totalCount || allUsuarios.length);
+      setTotalCount(totalCount);
       setUsuarios(allUsuarios);
       setUltimaActualizacion(new Date().toLocaleTimeString("es-AR"));
       setEstado("ok");
