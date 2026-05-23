@@ -17,7 +17,12 @@ const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov"
 
 function catColor(cat) { return CAT_COLORS[cat] || CAT_COLORS.default; }
 function getHour(h) { if (!h) return null; return parseInt(h.split(":")[0], 10); }
-function isFinde(f) { if (!f) return false; const d = new Date(f+"T00:00:00"); return d.getDay()===0||d.getDay()===6; }
+function isFinde(f) {
+  if (!f) return false;
+  const [y, m, d] = f.split("-").map(Number);
+  const dow = new Date(y, m - 1, d).getDay();
+  return dow === 0 || dow === 6;
+}
 function fmt(n) { if(n==null)return"—"; if(n>=1000000)return(n/1000000).toFixed(1)+"M"; if(n>=1000)return(n/1000).toFixed(1)+"k"; return n.toString(); }
 function pct(a,b) { if(!b)return null; return(((a-b)/b)*100).toFixed(1); }
 function groupBy(arr,key) { return arr.reduce((acc,r)=>{const k=r[key]??"Sin dato";acc[k]=(acc[k]||0)+1;return acc},{}); }
@@ -288,21 +293,22 @@ function localToUTC(fechaStr, horaLocal) {
 
 // Resta un día a una fecha YYYY-MM-DD
 function prevDay(fechaStr) {
-  const d = new Date(fechaStr + "T12:00:00Z");
-  d.setUTCDate(d.getUTCDate() - 1);
-  return d.toISOString().slice(0,10);
+  const [y, m, d] = fechaStr.split("-").map(Number);
+  const dt = new Date(y, m - 1, d - 1);
+  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
 }
 
 // Suma un día
 function nextDay(fechaStr) {
-  const d = new Date(fechaStr + "T12:00:00Z");
-  d.setUTCDate(d.getUTCDate() + 1);
-  return d.toISOString().slice(0,10);
+  const [y, m, d] = fechaStr.split("-").map(Number);
+  const dt = new Date(y, m - 1, d + 1);
+  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
 }
 
 function esFinde(fechaStr) {
-  const d = new Date(fechaStr + "T12:00:00Z");
-  const dow = d.getUTCDay();
+  // Parseamos año/mes/día directamente para evitar desfase UTC
+  const [y, m, d] = fechaStr.split("-").map(Number);
+  const dow = new Date(y, m - 1, d).getDay(); // getDay() local
   return dow === 0 || dow === 6;
 }
 
