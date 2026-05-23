@@ -25,8 +25,12 @@ function getHour(h) { if (!h) return null; return parseInt(h.split(":")[0], 10);
 
 function parseFecha(fechaStr) {
   if (!fechaStr) return null;
-  const [y, m, d] = fechaStr.split("-").map(Number);
-  return new Date(y, m - 1, d);
+
+  const fecha = new Date(fechaStr);
+
+  if (isNaN(fecha.getTime())) return null;
+
+  return fecha;
 }
 function isFinde(f) {
   if (!f) return false;
@@ -628,12 +632,40 @@ function ViewUsuarios() {
         { path:"direccion.barrio", select:"nombre" },
       ]);
       const filter = JSON.stringify({ $and:[{ activo:"true" }] });
-      const url = `${VECINOS_API}?limit=500&sort=-fechaCreacion&populate=${encodeURIComponent(populate)}&filter=${encodeURIComponent(filter)}`;
-      const res = await fetch(url, { headers:{ Authorization:`Bearer ${token}` } });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-      setTotalCount(json.totalCount ?? json.datos?.length ?? 0);
-      setUsuarios(json.datos || []);
+      let allUsuarios = [];
+      let offset = 0;
+      const limit = 500;
+      let hasMore = true;
+      let totalCount = 0;
+
+      while (hasMore) {
+        const url = `${VECINOS_API}?limit=${limit}&offset=${offset}&sort=-fechaCreacion&populate=${encodeURIComponent(populate)}&filter=${encodeURIComponent(filter)}`;
+
+        const res = await fetch(url, {
+          headers:{ Authorization:`Bearer ${token}` }
+        });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const json = await res.json();
+
+        if (!totalCount) {
+          totalCount = json.totalCount ?? 0;
+        }
+
+        const chunk = json.datos || [];
+
+        allUsuarios = [...allUsuarios, ...chunk];
+
+        if (chunk.length < limit) {
+          hasMore = false;
+        } else {
+          offset += limit;
+        }
+      }
+
+      setTotalCount(totalCount || allUsuarios.length);
+      setUsuarios(allUsuarios);
       setUltimaActualizacion(new Date().toLocaleTimeString("es-AR"));
       setEstado("ok");
     } catch(e) {
@@ -674,15 +706,25 @@ function ViewUsuarios() {
   // FIX 2 cont: now usuariosNormalizados is stable, this useMemo works correctly
   const usuariosFiltrados = useMemo(() => {
     return usuariosNormalizados.filter(u => {
+      const fecha = new Date(u.fechaCreacion);
+
+      if (isNaN(fecha.getTime())) return false;
+
       if (userFilters.fechaDesde) {
-        const fc = u.fechaCreacion ? u.fechaCreacion.slice(0,10) : "";
-        if (fc < userFilters.fechaDesde) return false;
+        const desde = new Date(userFilters.fechaDesde);
+
+        if (fecha < desde) return false;
       }
+
       if (userFilters.fechaHasta) {
-        const fc = u.fechaCreacion ? u.fechaCreacion.slice(0,10) : "";
-        if (fc > userFilters.fechaHasta) return false;
+        const hasta = new Date(userFilters.fechaHasta);
+        hasta.setHours(23, 59, 59, 999);
+
+        if (fecha > hasta) return false;
       }
+
       if (userFilters.cgm && u.localidadNombre !== userFilters.cgm) return false;
+
       return true;
     });
   }, [usuariosNormalizados, userFilters]);
