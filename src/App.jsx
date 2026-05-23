@@ -5,7 +5,9 @@ const SUPABASE_URL = "https://ygwjvkjrpojxjczcholu.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlnd2p2a2pycG9qeGpjemNob2x1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNzgyNDYsImV4cCI6MjA5NDk1NDI0Nn0.NvCxB2sXVxa4kQVGiVPs6_x1cinRi4UFpBJud6sx1Nw";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const CGM_GEOJSON = {"type":"FeatureCollection","features":[{"type":"Feature","properties":{"name":"Ingeniero Budge"},"geometry":{"type":"Polygon","coordinates":[[[-58.4610056,-34.7053577],[-58.461048,-34.705404],[-58.461337,-34.705605],[-58.461474,-34.70584],[-58.471049,-34.715476],[-58.469986,-34.716167],[-58.469503,-34.716763],[-58.46918,-34.717555],[-58.468882,-34.718216],[-58.468333,-34.718757],[-58.467408,-34.719154],[-58.467152,-34.719734],[-58.466519,-34.720098],[-58.466293,-34.720573],[-58.466223,-34.721083],[-58.466949,-34.721578],[-58.46819,-34.722282],[-58.467838,-34.722883],[-58.467368,-34.723536],[-58.466803,-34.724126],[-58.466428,-34.724606],[-58.465618,-34.725637],[-58.464879,-34.726622],[-58.463908,-34.727342],[-58.463384,-34.727864],[-58.462947,-34.728421],[-58.462469,-34.728968],[-58.462076,-34.729393],[-58.461735,-34.730025],[-58.461382,-34.73044],[-58.46094,-34.730889],[-58.460557,-34.731589],[-58.460466,-34.731933],[-58.460373,-34.732074],[-58.460126,-34.731941],[-58.45573,-34.729741],[-58.450571,-34.727019],[-58.44655,-34.724922],[-58.444147,-34.723583],[-58.446535,-34.720601],[-58.450289,-34.715915],[-58.451869,-34.713954],[-58.455337,-34.709929],[-58.456351,-34.708729],[-58.457383,-34.707828],[-58.458158,-34.707197],[-58.458866,-34.706602],[-58.459806,-34.706079],[-58.460431,-34.705666],[-58.460993,-34.705321],[-58.4610056,-34.7053577]]]}},{"type":"Feature","properties":{"name":"Parque Barón"},"geometry":{"type":"Polygon","coordinates":[[[-58.4545316,-34.7577462],[-58.4442716,-34.7717582],[-58.4396026,-34.7781882],[-58.4384946,-34.7796862],[-58.4363085,-34.7827612],[-58.4342595,-34.7841672],[-58.4334956,-34.7844312],[-58.4324395,-34.7848152],[-58.4320715,-34.7846922],[-58.4314536,-34.7844922],[-58.4301565,-34.7840162],[-58.4274296,-34.7829812],[-58.4262025,-34.7825292],[-58.4248625,-34.7819132],[-58.4247975,-34.7809642],[-58.4247435,-34.7798442],[-58.4248375,-34.7790452],[-58.4250675,-34.7782292],[-58.4254465,-34.7775302],[-58.4266415,-34.7768222],[-58.4273806,-34.7759082],[-58.4278675,-34.7745382],[-58.4279465,-34.7741042],[-58.4281455,-34.7729772],[-58.4283085,-34.7720862],[-58.4287105,-34.7712082],[-58.4295056,-34.7697222],[-58.4298855,-34.7687662],[-58.4292426,-34.7672372],[-58.4286505,-34.7664422],[-58.4281405,-34.7656282],[-58.4285275,-34.7647422],[-58.4289005,-34.7637192],[-58.4293006,-34.7626412],[-58.4294216,-34.7624442],[-58.4308295,-34.7588662],[-58.4311596,-34.7583782],[-58.4321475,-34.7569352],[-58.4329566,-34.7559372],[-58.4334646,-34.7554792],[-58.4342755,-34.7548652],[-58.4344355,-34.7546622],[-58.4356822,-34.7552644],[-58.4364145,-34.7537462],[-58.4379765,-34.7530922],[-58.4390346,-34.7525922],[-58.4400165,-34.7521112],[-58.4405326,-34.7520762],[-58.4413806,-34.7524832],[-58.4426926,-34.7532452],[-58.4439826,-34.7538142],[-58.4443026,-34.7537682],[-58.4450386,-34.7527682],[-58.4522206,-34.7565752],[-58.4545316,-34.7577462]]]}},{"type":"Feature","properties":{"name":"Santa Catalina"},"geometry":{"type":"Polygon","coordinates":[[[-58.4841686,-34.7297412],[-58.4841713,-34.729743],[-58.4841685,-34.729743],[-58.4841683,-34.729747],[-58.4841683,-34.729761],[-58.4841653,-34.729763],[-58.4841703,-34.729765],[-58.4841673,-34.729767],[-58.4841733,-34.729765],[-58.4841673,-34.72977],[-58.4841623,-34.729826],[-58.4841113,-34.730079],[-58.4840493,-34.73038],[-58.4838683,-34.73126],[-58.4840633,-34.732016],[-58.4841713,-34.732239],[-58.4848943,-34.732337],[-58.4855243,-34.732259],[-58.4857373,-34.732019],[-58.4862803,-34.731024],[-58.4869113,-34.729845],[-58.4873573,-34.729585],[-58.4887883,-34.729005],[-58.4900523,-34.728598],[-58.4917993,-34.728222],[-58.4926553,-34.727548],[-58.4932703,-34.726738],[-58.4936153,-34.725573],[-58.4937813,-34.725032],[-58.4943433,-34.724817],[-58.4956823,-34.724925],[-58.4970033,-34.72389],[-58.4983033,-34.723209],[-58.4995113,-34.722992],[-58.5013503,-34.722971],[-58.4727613,-34.760736],[-58.4577923,-34.75321],[-58.4584863,-34.7522485],[-58.4591803,-34.751146],[-58.4603303,-34.749616],[-58.4612813,-34.74828],[-58.4625103,-34.74658],[-58.4631533,-34.7458],[-58.4636083,-34.745117],[-58.4646933,-34.743704],[-58.4653463,-34.742864],[-58.4657013,-34.742354],[-58.4667123,-34.741121],[-58.4678443,-34.739605],[-58.4689043,-34.738298],[-58.4702083,-34.736928],[-58.4714273,-34.735882],[-58.4727543,-34.734926],[-58.4739083,-34.734015],[-58.4750013,-34.73325],[-58.4762663,-34.732278],[-58.4773463,-34.731458],[-58.4787603,-34.730367],[-58.4800893,-34.729369],[-58.4811893,-34.728516],[-58.4821013,-34.727826],[-58.4832993,-34.726788],[-58.4842963,-34.727755],[-58.4839213,-34.728088],[-58.4835613,-34.728409],[-58.4839933,-34.729474],[-58.4841473,-34.729544],[-58.4841573,-34.729561],[-58.4841573,-34.729571],[-58.4841653,-34.729627],[-58.4841703,-34.729652],[-58.4841673,-34.729661],[-58.4841723,-34.72967],[-58.4841686,-34.7297412]]]}},{"type":"Feature","properties":{"name":"Santa Marta"},"geometry":{"type":"Polygon","coordinates":[[[-58.4546175,-34.7573194],[-58.4521905,-34.7560844],[-58.4499285,-34.7548894],[-58.4467325,-34.7531964],[-58.4451585,-34.7523624],[-58.4443705,-34.7533774],[-58.4440505,-34.7533844],[-58.4425125,-34.7526864],[-58.4413735,-34.7520144],[-58.4406165,-34.7516574],[-58.4401635,-34.7516744],[-58.4394595,-34.7520084],[-58.4384055,-34.7525204],[-58.4370795,-34.7531084],[-58.4360195,-34.7535134],[-58.4345326,-34.7542284],[-58.4354096,-34.7528324],[-58.4360005,-34.7519454],[-58.4360875,-34.7512474],[-58.4360815,-34.7510984],[-58.4359845,-34.7509704],[-58.4358895,-34.7508754],[-58.4353356,-34.7505094],[-58.4336236,-34.7496814],[-58.4322656,-34.7490294],[-58.4312296,-34.7483674],[-58.4304156,-34.7475624],[-58.4302146,-34.7463914],[-58.4299566,-34.7450004],[-58.4297486,-34.7442094],[-58.4296336,-34.7436274],[-58.4303676,-34.7425314],[-58.4308416,-34.7418044],[-58.4317966,-34.7404704],[-58.4326236,-34.7393264],[-58.4331806,-34.7385634],[-58.4336776,-34.7378174],[-58.4339576,-34.7373114],[-58.4344236,-34.7365444],[-58.4349836,-34.7357604],[-58.4422765,-34.7397124],[-58.4430555,-34.7401644],[-58.4458805,-34.7418284],[-58.4524265,-34.7454484],[-58.4535485,-34.7440114],[-58.4615355,-34.7481744],[-58.4546175,-34.7573194]]]}},{"type":"Feature","properties":{"name":"Turdera"},"geometry":{"type":"Polygon","coordinates":[[[-58.4100822,-34.7988914],[-58.3954082,-34.7909594],[-58.3959592,-34.7828934],[-58.3968172,-34.7838084],[-58.3969472,-34.7839384],[-58.3984662,-34.7852614],[-58.3994532,-34.7856874],[-58.4015772,-34.7865864],[-58.4037882,-34.7867804],[-58.4055792,-34.7865944],[-58.4084792,-34.7860554],[-58.4100182,-34.7857874],[-58.4111642,-34.7856524],[-58.4128902,-34.7855204],[-58.4170362,-34.7851994],[-58.4207902,-34.7849584],[-58.4100822,-34.7988914]]]}},{"type":"Feature","properties":{"name":"Villa Albertina"},"geometry":{"type":"Polygon","coordinates":[[[-58.47121,-34.73611],[-58.470389,-34.736762],[-58.469551,-34.737637],[-58.468846,-34.73841],[-58.468309,-34.739052],[-58.467795,-34.739678],[-58.46651,-34.741386],[-58.466881,-34.740932],[-58.466033,-34.74197],[-58.465547,-34.742594],[-58.464736,-34.743634],[-58.46418,-34.744343],[-58.463636,-34.745073],[-58.463078,-34.745859],[-58.462528,-34.746546],[-58.461787,-34.747542],[-58.461352,-34.748346],[-58.457844,-34.746579],[-58.454737,-34.744976],[-58.453396,-34.744241],[-58.452276,-34.745671],[-58.447409,-34.743039],[-58.442211,-34.739975],[-58.43695,-34.73713],[-58.434832,-34.735977],[-58.435478,-34.734881],[-58.436845,-34.73316],[-58.438985,-34.730444],[-58.439869,-34.729234],[-58.440401,-34.728532],[-58.441786,-34.726682],[-58.442728,-34.725417],[-58.444172,-34.723605],[-58.456083,-34.729919],[-58.460382,-34.73207],[-58.46094,-34.730889],[-58.46273,-34.731808],[-58.465402,-34.733236],[-58.469938,-34.73552],[-58.470633,-34.73585],[-58.47121,-34.73611]]]}},{"type":"Feature","properties":{"name":"Villa Centenario"},"geometry":{"type":"Polygon","coordinates":[[[-58.4275063,-34.713399],[-58.4360813,-34.717722],[-58.4409513,-34.720403],[-58.4448803,-34.72265],[-58.4421503,-34.726179],[-58.4386453,-34.73088],[-58.4354693,-34.734893],[-58.4348803,-34.735883],[-58.4341653,-34.736883],[-58.4332853,-34.738371],[-58.4318693,-34.74034],[-58.4310283,-34.741482],[-58.4301113,-34.742937],[-58.4294553,-34.743836],[-58.4293583,-34.743562],[-58.4292433,-34.743213],[-58.4289743,-34.742781],[-58.4286883,-34.742288],[-58.4281953,-34.741922],[-58.4274273,-34.741635],[-58.4266413,-34.74162],[-58.4254243,-34.741608],[-58.4253063,-34.74161],[-58.4259703,-34.738371],[-58.4245163,-34.73769],[-58.4180993,-34.734775],[-58.4160063,-34.733941],[-58.4132863,-34.732524],[-58.4200553,-34.7232],[-58.4275063,-34.713399]]]}},{"type":"Feature","properties":{"name":"Villa Fiorito"},"geometry":{"type":"Polygon","coordinates":[[[-58.4467687,-34.6882615],[-58.4517837,-34.6946655],[-58.4556937,-34.6993375],[-58.4612297,-34.7055165],[-58.4588387,-34.7069315],[-58.4580927,-34.7073745],[-58.4577607,-34.7074625],[-58.4574057,-34.7079395],[-58.4564557,-34.7087075],[-58.4533857,-34.7122025],[-58.4504247,-34.7158095],[-58.4473897,-34.7194795],[-58.4455617,-34.7218125],[-58.4448267,-34.7226995],[-58.4390907,-34.7194605],[-58.4356147,-34.7175615],[-58.4333947,-34.7163805],[-58.4274557,-34.7134565],[-58.4467687,-34.6882615]]]}},{"type":"Feature","properties":{"name":"Villa Lamadrid"},"geometry":{"type":"Polygon","coordinates":[[[-58.4712833,-34.7360621],[-58.4659003,-34.7334051],[-58.4611053,-34.7308741],[-58.4612103,-34.7306841],[-58.4617273,-34.7301171],[-58.4621533,-34.7293861],[-58.4624753,-34.7290451],[-58.4635533,-34.7277811],[-58.4636633,-34.7276131],[-58.4637703,-34.7275471],[-58.4644383,-34.7270081],[-58.4650143,-34.7264991],[-58.4663073,-34.7248631],[-58.4671123,-34.7238911],[-58.4678503,-34.7229671],[-58.4682953,-34.7222211],[-58.4677063,-34.7218931],[-58.4666693,-34.7213111],[-58.4663233,-34.7210301],[-58.4663853,-34.7205591],[-58.4666263,-34.7200681],[-58.4672563,-34.7196741],[-58.4675063,-34.7191081],[-58.4679923,-34.7188981],[-58.4687143,-34.7184461],[-58.4689573,-34.7182141],[-58.4696323,-34.7166711],[-58.4701483,-34.7161011],[-58.4711343,-34.7154221],[-58.4745333,-34.7185691],[-58.4834183,-34.7268051],[-58.4712833,-34.7360621]]]}},{"type":"Feature","properties":{"name":"San José"},"geometry":{"type":"Polygon","coordinates":[[[-58.3639498,-34.749648],[-58.3777278,-34.756942],[-58.3714548,-34.766477],[-58.3707818,-34.76615],[-58.3644808,-34.774739],[-58.3585148,-34.771679],[-58.3619018,-34.767691],[-58.3535708,-34.763385],[-58.3368167,-34.754568],[-58.3420837,-34.746568],[-58.3433697,-34.74266],[-58.3442387,-34.736811],[-58.3476628,-34.739888],[-58.3565258,-34.739987],[-58.3669788,-34.745587],[-58.3642868,-34.749186],[-58.3637478,-34.749894],[-58.3639498,-34.749648]]]}},{"type":"Feature","properties":{"name":"Temperley"},"geometry":{"type":"Polygon","coordinates":[[[-58.3959237,-34.782886],[-58.3952337,-34.790769],[-58.3642357,-34.774421],[-58.3705377,-34.76589],[-58.3712027,-34.766217],[-58.3774807,-34.756684],[-58.3976517,-34.767246],[-58.3976517,-34.767253],[-58.4236336,-34.781148],[-58.4207017,-34.78488],[-58.4162027,-34.785178],[-58.4098607,-34.785717],[-58.4052117,-34.786567],[-58.4035537,-34.786707],[-58.4014857,-34.786516],[-58.3983617,-34.7852],[-58.3967757,-34.783799],[-58.3959237,-34.782886]]]}},{"type":"Feature","properties":{"name":"Llavallol"},"geometry":{"type":"Polygon","coordinates":[[[-58.444374,-34.77136],[-58.459074,-34.779015],[-58.430373,-34.817235],[-58.404803,-34.804497],[-58.407703,-34.800901],[-58.408309,-34.800926],[-58.409666,-34.799307],[-58.412605,-34.795638],[-58.412621,-34.795639],[-58.423751,-34.781192],[-58.425866,-34.782214],[-58.43096,-34.784132],[-58.432361,-34.784612],[-58.434171,-34.783966],[-58.436212,-34.782561],[-58.438252,-34.779688],[-58.441021,-34.775944],[-58.444374,-34.77136]]]}},{"type":"Feature","properties":{"name":"Banfield"},"geometry":{"type":"Polygon","coordinates":[[[-58.3748696,-34.7424894],[-58.3801995,-34.7383504],[-58.3861425,-34.7366684],[-58.3898615,-34.7361034],[-58.3942925,-34.7354274],[-58.3942935,-34.7354354],[-58.3971425,-34.7348814],[-58.4018455,-34.7340724],[-58.4047055,-34.7336334],[-58.4128665,-34.7324894],[-58.4131165,-34.7322974],[-58.4154554,-34.7335174],[-58.4190074,-34.7349404],[-58.4206144,-34.7357424],[-58.4242664,-34.7373854],[-58.4259844,-34.7381824],[-58.4258144,-34.7385594],[-58.4253984,-34.7402724],[-58.4251804,-34.7413854],[-58.4248794,-34.7432434],[-58.4243414,-34.7460794],[-58.4228314,-34.7462904],[-58.4203784,-34.7466504],[-58.4169264,-34.7471424],[-58.4139295,-34.7475374],[-58.4118145,-34.7478364],[-58.4100125,-34.7481004],[-58.4068595,-34.7485474],[-58.4050855,-34.7488164],[-58.3999595,-34.7495754],[-58.3960045,-34.7501324],[-58.3912915,-34.7508724],[-58.3881385,-34.7513134],[-58.3868115,-34.7514674],[-58.3839835,-34.7499494],[-58.3785695,-34.7571124],[-58.3772045,-34.7564034],[-58.3698596,-34.7525384],[-58.3636706,-34.7492424],[-58.3660606,-34.7460774],[-58.3666636,-34.7452464],[-58.3719746,-34.7408634],[-58.3748696,-34.7424894]]]}},{"type":"Feature","properties":{"name":"Lomas de Zamora"},"geometry":{"type":"Polygon","coordinates":[[[-58.4123656,-34.7749541],[-58.3785716,-34.7571321],[-58.3839946,-34.7499661],[-58.3868096,-34.7514871],[-58.3882316,-34.7513191],[-58.3911216,-34.7509181],[-58.3959976,-34.7501461],[-58.4004596,-34.7495201],[-58.4060456,-34.7486611],[-58.4060466,-34.7486641],[-58.4243235,-34.7461061],[-58.4251685,-34.7414151],[-58.4272645,-34.7414331],[-58.4280495,-34.7417261],[-58.4285365,-34.7420901],[-58.4290035,-34.7428631],[-58.4291125,-34.7430491],[-58.4293305,-34.7436951],[-58.4294315,-34.7441671],[-58.4296505,-34.7450351],[-58.4297035,-34.7453101],[-58.4301045,-34.7475851],[-58.4308905,-34.7483651],[-58.4318775,-34.7490061],[-58.4328715,-34.7494911],[-58.4339325,-34.7499921],[-58.4349805,-34.7504961],[-58.4355215,-34.7508621],[-58.4356244,-34.7509341],[-58.4357805,-34.7511341],[-58.4357004,-34.7519311],[-58.4342275,-34.7542431],[-58.4340375,-34.7544801],[-58.4328865,-34.7553671],[-58.4322735,-34.7560731],[-58.4313225,-34.7573701],[-58.4305525,-34.7585671],[-58.4296395,-34.7610151],[-58.4289665,-34.7625341],[-58.4282455,-34.7644921],[-58.4279095,-34.7652311],[-58.4283495,-34.7659081],[-58.4290185,-34.7668241],[-58.4296725,-34.7683751],[-58.4294595,-34.7689301],[-58.4289845,-34.7698971],[-58.4284655,-34.7708341],[-58.4280905,-34.7716811],[-58.4278335,-34.7730291],[-58.4276445,-34.7741281],[-58.4271715,-34.7755091],[-58.4263715,-34.7764581],[-58.4252365,-34.7771251],[-58.4248315,-34.7778411],[-58.4246155,-34.7786421],[-58.4245225,-34.7794621],[-58.4245535,-34.7803601],[-58.4246145,-34.7810601],[-58.4246605,-34.7815281],[-58.4174206,-34.7776821],[-58.4145025,-34.7760351],[-58.4128525,-34.7752571],[-58.4122596,-34.7750341],[-58.4124395,-34.7748991],[-58.4124695,-34.7748581],[-58.4123656,-34.7749541]]]}}]};
+const VECINOS_API = "https://apis2.novit.gpesistemas.ar/monitoreo/configvecinos";
+
+const CGM_GEOJSON = {"type":"FeatureCollection","features":[{"type":"Feature","properties":{"name":"Ingeniero Budge"},"geometry":{"type":"Polygon","coordinates":[[[-58.4610056,-34.7053577],[-58.461048,-34.705404],[-58.461337,-34.705605],[-58.461474,-34.70584],[-58.471049,-34.715476],[-58.469986,-34.716167],[-58.469503,-34.716763],[-58.46918,-34.717555],[-58.468882,-34.718216],[-58.468333,-34.718757],[-58.467408,-34.719154],[-58.467152,-34.719734],[-58.466519,-34.720098],[-58.466293,-34.720573],[-58.466223,-34.721083],[-58.466949,-34.721578],[-58.46819,-34.722282],[-58.467838,-34.722883],[-58.467368,-34.723536],[-58.466803,-34.724126],[-58.466428,-34.724606],[-58.465618,-34.725637],[-58.464879,-34.726622],[-58.463908,-34.727342],[-58.463384,-34.727864],[-58.462947,-34.728421],[-58.462469,-34.728968],[-58.462076,-34.729393],[-58.461735,-34.730025],[-58.461382,-34.73044],[-58.46094,-34.730889],[-58.460557,-34.731589],[-58.460466,-34.731933],[-58.460373,-34.732074],[-58.460126,-34.731941],[-58.45573,-34.729741],[-58.450571,-34.727019],[-58.44655,-34.724922],[-58.444147,-34.723583],[-58.446535,-34.720601],[-58.450289,-34.715915],[-58.451869,-34.713954],[-58.455337,-34.709929],[-58.456351,-34.708729],[-58.457383,-34.707828],[-58.458158,-34.707197],[-58.458866,-34.706602],[-58.459806,-34.706079],[-58.460431,-34.705666],[-58.460993,-34.705321],[-58.4610056,-34.7053577]]]}},{"type":"Feature","properties":{"name":"Parque Barón"},"geometry":{"type":"Polygon","coordinates":[[[-58.4545316,-34.7577462],[-58.4442716,-34.7717582],[-58.4396026,-34.7781882],[-58.4384946,-34.7796862],[-58.4363085,-34.7827612],[-58.4342595,-34.7841672],[-58.4334956,-34.7844312],[-58.4324395,-34.7848152],[-58.4320715,-34.7846922],[-58.4314536,-34.7844922],[-58.4301565,-34.7840162],[-58.4274296,-34.7829812],[-58.4262025,-34.7825292],[-58.4248625,-34.7819132],[-58.4247975,-34.7809642],[-58.4247435,-34.7798442],[-58.4248375,-34.7790452],[-58.4250675,-34.7782292],[-58.4254465,-34.7775302],[-58.4266415,-34.7768222],[-58.4273806,-34.7759082],[-58.4278675,-34.7745382],[-58.4279465,-34.7741042],[-58.4281455,-34.7729772],[-58.4283085,-34.7720862],[-58.4287105,-34.7712082],[-58.4295056,-34.7697222],[-58.4298855,-34.7687662],[-58.4292426,-34.7672372],[-58.4286505,-34.7664422],[-58.4281405,-34.7656282],[-58.4285275,-34.7647422],[-58.4289005,-34.7637192],[-58.4293006,-34.7626412],[-58.4294216,-34.7624442],[-58.4308295,-34.7588662],[-58.4311596,-34.7583782],[-58.4321475,-34.7569352],[-58.4329566,-34.7559372],[-58.4334646,-34.7554792],[-58.4342755,-34.7548652],[-58.4344355,-34.7546622],[-58.4356822,-34.7552644],[-58.4364145,-34.7537462],[-58.4379765,-34.7530922],[-58.4390346,-34.7525922],[-58.4400165,-34.7521112],[-58.4405326,-34.7520762],[-58.4413806,-34.7524832],[-58.4426926,-34.7532452],[-58.4439826,-34.7538142],[-58.4443026,-34.7537682],[-58.4450386,-34.7527682],[-58.4522206,-34.7565752],[-58.4545316,-34.7577462]]]}},{"type":"Feature","properties":{"name":"Santa Catalina"},"geometry":{"type":"Polygon","coordinates":[[[-58.4841686,-34.7297412],[-58.5013503,-34.722971],[-58.4727613,-34.760736],[-58.4577923,-34.75321],[-58.4841686,-34.7297412]]]}},{"type":"Feature","properties":{"name":"Santa Marta"},"geometry":{"type":"Polygon","coordinates":[[[-58.4546175,-34.7573194],[-58.4521905,-34.7560844],[-58.4499285,-34.7548894],[-58.4467325,-34.7531964],[-58.4451585,-34.7523624],[-58.4443705,-34.7533774],[-58.4440505,-34.7533844],[-58.4425125,-34.7526864],[-58.4413735,-34.7520144],[-58.4406165,-34.7516574],[-58.4401635,-34.7516744],[-58.4394595,-34.7520084],[-58.4384055,-34.7525204],[-58.4370795,-34.7531084],[-58.4360195,-34.7535134],[-58.4345326,-34.7542284],[-58.4615355,-34.7481744],[-58.4546175,-34.7573194]]]}},{"type":"Feature","properties":{"name":"Turdera"},"geometry":{"type":"Polygon","coordinates":[[[-58.4100822,-34.7988914],[-58.3954082,-34.7909594],[-58.3959592,-34.7828934],[-58.4207902,-34.7849584],[-58.4100822,-34.7988914]]]}},{"type":"Feature","properties":{"name":"Villa Albertina"},"geometry":{"type":"Polygon","coordinates":[[[-58.47121,-34.73611],[-58.442211,-34.739975],[-58.43695,-34.73713],[-58.434832,-34.735977],[-58.444172,-34.723605],[-58.47121,-34.73611]]]}},{"type":"Feature","properties":{"name":"Villa Centenario"},"geometry":{"type":"Polygon","coordinates":[[[-58.4275063,-34.713399],[-58.4448803,-34.72265],[-58.4253063,-34.74161],[-58.4200553,-34.7232],[-58.4275063,-34.713399]]]}},{"type":"Feature","properties":{"name":"Villa Fiorito"},"geometry":{"type":"Polygon","coordinates":[[[-58.4467687,-34.6882615],[-58.4612297,-34.7055165],[-58.4448267,-34.7226995],[-58.4274557,-34.7134565],[-58.4467687,-34.6882615]]]}},{"type":"Feature","properties":{"name":"Villa Lamadrid"},"geometry":{"type":"Polygon","coordinates":[[[-58.4712833,-34.7360621],[-58.4834183,-34.7268051],[-58.4611053,-34.7308741],[-58.4712833,-34.7360621]]]}},{"type":"Feature","properties":{"name":"San José"},"geometry":{"type":"Polygon","coordinates":[[[-58.3639498,-34.749648],[-58.3777278,-34.756942],[-58.3368167,-34.754568],[-58.3639498,-34.749648]]]}},{"type":"Feature","properties":{"name":"Temperley"},"geometry":{"type":"Polygon","coordinates":[[[-58.3959237,-34.782886],[-58.3952337,-34.790769],[-58.3642357,-34.774421],[-58.3959237,-34.782886]]]}},{"type":"Feature","properties":{"name":"Llavallol"},"geometry":{"type":"Polygon","coordinates":[[[-58.444374,-34.77136],[-58.459074,-34.779015],[-58.404803,-34.804497],[-58.444374,-34.77136]]]}},{"type":"Feature","properties":{"name":"Banfield"},"geometry":{"type":"Polygon","coordinates":[[[-58.3748696,-34.7424894],[-58.4259844,-34.7381824],[-58.3636706,-34.7492424],[-58.3748696,-34.7424894]]]}},{"type":"Feature","properties":{"name":"Lomas de Zamora"},"geometry":{"type":"Polygon","coordinates":[[[-58.4123656,-34.7749541],[-58.3785716,-34.7571321],[-58.4246605,-34.7815281],[-58.4123656,-34.7749541]]]}},]};
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
 const CAT_COLORS = {
@@ -197,34 +199,16 @@ function FiltersPanel({ filters, setFilters, options, open, setOpen }) {
       {open && (
         <div style={{padding:"0 18px 16px",borderTop:`1px solid rgba(139,92,246,0.1)`}}>
           <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:14,paddingTop:14,alignItems:"end"}}>
-
             <div>
               <label style={lbl}>Desde</label>
-              <input
-                type="date"
-                value={filters.fechaDesde}
-                onChange={e=>setFilters(f=>({...f,fechaDesde:e.target.value}))}
-                style={dateInp}
-              />
+              <input type="date" value={filters.fechaDesde} onChange={e=>setFilters(f=>({...f,fechaDesde:e.target.value}))} style={dateInp}/>
             </div>
-
             <div>
               <label style={lbl}>Hasta</label>
-              <input
-                type="date"
-                value={filters.fechaHasta}
-                onChange={e=>setFilters(f=>({...f,fechaHasta:e.target.value}))}
-                style={dateInp}
-              />
+              <input type="date" value={filters.fechaHasta} onChange={e=>setFilters(f=>({...f,fechaHasta:e.target.value}))} style={dateInp}/>
             </div>
-
             <div>
-              <label style={lbl}>
-                Turno
-                <span style={{fontSize:9,color:T.muted,fontWeight:400,letterSpacing:0,textTransform:"none",marginLeft:6}}>
-                  sem 8hs · finde 12hs
-                </span>
-              </label>
+              <label style={lbl}>Turno <span style={{fontSize:9,color:T.muted,fontWeight:400,letterSpacing:0,textTransform:"none",marginLeft:6}}>sem 8hs · finde 12hs</span></label>
               <select value={filters.turno} onChange={e=>setFilters(f=>({...f,turno:e.target.value}))} style={baseInp}>
                 <option value="">Todos</option>
                 <option value="Mañana">Mañana</option>
@@ -232,7 +216,6 @@ function FiltersPanel({ filters, setFilters, options, open, setOpen }) {
                 <option value="Noche">Noche</option>
               </select>
             </div>
-
             <div>
               <label style={lbl}>Categoría</label>
               <select value={filters.categoria} onChange={e=>setFilters(f=>({...f,categoria:e.target.value}))} style={baseInp}>
@@ -240,7 +223,6 @@ function FiltersPanel({ filters, setFilters, options, open, setOpen }) {
                 {(options.categorias||[]).map(o=><option key={o} value={o}>{o}</option>)}
               </select>
             </div>
-
             <div>
               <label style={lbl}>Tipo</label>
               <select value={filters.tipo} onChange={e=>setFilters(f=>({...f,tipo:e.target.value}))} style={baseInp}>
@@ -248,14 +230,12 @@ function FiltersPanel({ filters, setFilters, options, open, setOpen }) {
                 {(options.tipos||[]).map(o=><option key={o} value={o}>{o}</option>)}
               </select>
             </div>
-
             <button
               onClick={()=>setFilters({fechaDesde:firstOfMonthStr(),fechaHasta:todayStr(),cgm:"",categoria:"",tipo:"",turno:""})}
               style={{background:"rgba(139,92,246,0.12)",border:`1px solid ${T.border}`,color:T.text2,borderRadius:10,padding:"7px 14px",fontSize:11,fontFamily:"'Inter',sans-serif",cursor:"pointer",fontWeight:600,width:"100%",height:34}}
             >
               ↺ Resetear
             </button>
-
           </div>
         </div>
       )}
@@ -264,58 +244,31 @@ function FiltersPanel({ filters, setFilters, options, open, setOpen }) {
 }
 
 // ─── ALERTA DISCREPANCIA ─────────────────────────────────────────────────────
-
 const API_NOVIT = "https://apis2.novit.gpesistemas.ar/monitoreo/alertas";
-
-// ── helpers de fecha ─────────────────────────────────────────────────────────
-// Parsing SIEMPRE en local (new Date(y,m-1,d)) para evitar el desfase UTC.
 
 function disc_getDow(fechaStr) {
   const [y, m, d] = fechaStr.split("-").map(Number);
-  return new Date(y, m - 1, d).getDay(); // 0 = Dom, 6 = Sáb
+  return new Date(y, m - 1, d).getDay();
 }
-
 function disc_esFinde(fechaStr) {
   const dow = disc_getDow(fechaStr);
   return dow === 0 || dow === 6;
 }
-
 function disc_prevDay(fechaStr) {
   const [y, m, d] = fechaStr.split("-").map(Number);
   const dt = new Date(y, m - 1, d - 1);
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
 }
-
 function disc_nextDay(fechaStr) {
   const [y, m, d] = fechaStr.split("-").map(Number);
   const dt = new Date(y, m - 1, d + 1);
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
 }
-
-/**
- * Convierte una fecha local Argentina (YYYY-MM-DD) + hora local (0–23)
- * a un ISO UTC string.
- * Argentina = UTC−3  →  hora_UTC = hora_local + 3
- */
 function disc_toUTC(fechaStr, horaLocal) {
   const horaUTC = horaLocal + 3;
-  if (horaUTC < 24) {
-    return `${fechaStr}T${String(horaUTC).padStart(2, "0")}:00:00.000Z`;
-  }
-  // cruza medianoche UTC → siguiente día
+  if (horaUTC < 24) return `${fechaStr}T${String(horaUTC).padStart(2, "0")}:00:00.000Z`;
   return `${disc_nextDay(fechaStr)}T${String(horaUTC - 24).padStart(2, "0")}:00:00.000Z`;
 }
-
-// ── definición de los 5 tipos de turno ───────────────────────────────────────
-//
-//  DÍAS HÁBILES (Lun–Vie)
-//    TM-Hab   06:00–14:00
-//    TT-Hab   14:00–22:00
-//    TN-Hab   22:00–06:00 (madrugada del día siguiente)
-//
-//  FIN DE SEMANA (Sáb–Dom)
-//    TM-Fin   06:00–18:00
-//    TN-Fin   18:00–06:00 (madrugada del día siguiente)
 
 const DISC_SHIFTS = [
   { id: "TM-Hab", label: "Mañana Hábil", emoji: "🌅", rango: "06:00–14:00" },
@@ -324,63 +277,32 @@ const DISC_SHIFTS = [
   { id: "TM-Fin", label: "Mañana Finde", emoji: "🌅", rango: "06:00–18:00" },
   { id: "TN-Fin", label: "Noche Finde",  emoji: "🌙", rango: "18:00–06:00" },
 ];
-
-// Mapa del filtro de turno del panel → IDs de turno
 const DISC_TURNO_MAP = {
   "Mañana": ["TM-Hab", "TM-Fin"],
   "Tarde":  ["TT-Hab"],
   "Noche":  ["TN-Hab", "TN-Fin"],
 };
 
-// ── Supabase: clasificar registro → turno ─────────────────────────────────────
-/**
- * Determina a qué turno pertenece un registro de Supabase.
- * IMPORTANTE: usa `fecha` y `horario` (hora local AR), nunca created_at.
- *
- * Regla especial para la MADRUGADA (00:00–05:59):
- *   Esas horas pertenecen a la NOCHE del día ANTERIOR.
- *   Ejemplo: registro con fecha=Sábado horario=03:00 → TN-Fin del Viernes.
- *
- * desdeExt = desde - 1 día, para capturar madrugadas del primer día del rango.
- */
 function disc_shiftDeRegistro(r, desde, hasta, desdeExt) {
   if (!r.fecha || !r.horario) return null;
   const h = parseInt(r.horario.split(":")[0], 10);
   if (isNaN(h)) return null;
-
   if (h < 6) {
-    // ── Madrugada: pertenece a la noche del día anterior ──────────────────
     const padre = disc_prevDay(r.fecha);
-    // El padre debe caer dentro del rango real (desde..hasta), no solo el extendido.
-    // Usamos desdeExt para que el registro sea encontrado en allData,
-    // pero validamos que el padre esté en [desde, hasta].
     if (padre < desde || padre > hasta) return null;
     return disc_esFinde(padre) ? "TN-Fin" : "TN-Hab";
   }
-
-  // ── Resto del día (06:00–23:59): usar la fecha del propio registro ────────
   if (r.fecha < desde || r.fecha > hasta) return null;
-
-  if (disc_esFinde(r.fecha)) {
-    return h < 18 ? "TM-Fin" : "TN-Fin";
-  }
-  // Hábil
+  if (disc_esFinde(r.fecha)) return h < 18 ? "TM-Fin" : "TN-Fin";
   if (h < 14) return "TM-Hab";
   if (h < 22) return "TT-Hab";
-  return "TN-Hab"; // h >= 22
+  return "TN-Hab";
 }
 
-/**
- * Cuenta alertas de Supabase por tipo de turno.
- * Extiende la búsqueda un día hacia atrás para capturar registros de madrugada
- * (00:00–05:59) cuyo "padre" cae dentro del rango pedido.
- * Ejemplo: fecha=2026-05-23 horario=03:00 → padre=2026-05-22 → TN-Fin del viernes.
- */
 function disc_contarSupa(allData, desde, hasta) {
   const c = { "TM-Hab": 0, "TT-Hab": 0, "TN-Hab": 0, "TM-Fin": 0, "TN-Fin": 0 };
-  const desdeExt = disc_prevDay(desde); // un día antes para atrapar madrugadas
+  const desdeExt = disc_prevDay(desde);
   allData.forEach(r => {
-    // Pre-filtro amplio: descartamos registros claramente fuera de rango
     if (!r.fecha || r.fecha < desdeExt || r.fecha > hasta) return;
     const s = disc_shiftDeRegistro(r, desde, hasta, desdeExt);
     if (s) c[s]++;
@@ -388,24 +310,15 @@ function disc_contarSupa(allData, desde, hasta) {
   return c;
 }
 
-// ── Novit: generar bloques UTC por tipo de turno ──────────────────────────────
-/**
- * Itera cada día del rango [desde, hasta] y genera los bloques horarios
- * en UTC para consultar la API de Novit.
- *
- * Cada bloque es [inicio_UTC, fin_UTC) correspondiente a un turno en un día.
- */
 function disc_bloquesNovit(desde, hasta) {
   const b = { "TM-Hab": [], "TT-Hab": [], "TN-Hab": [], "TM-Fin": [], "TN-Fin": [] };
   let cur = desde;
   while (cur <= hasta) {
     const sig = disc_nextDay(cur);
     if (disc_esFinde(cur)) {
-      // Fin de semana: TM (06–18) y TN (18–06 del día siguiente)
       b["TM-Fin"].push([disc_toUTC(cur, 6),  disc_toUTC(cur, 18)]);
       b["TN-Fin"].push([disc_toUTC(cur, 18), disc_toUTC(sig, 6)]);
     } else {
-      // Hábil: TM (06–14), TT (14–22), TN (22–06 del día siguiente)
       b["TM-Hab"].push([disc_toUTC(cur, 6),  disc_toUTC(cur, 14)]);
       b["TT-Hab"].push([disc_toUTC(cur, 14), disc_toUTC(cur, 22)]);
       b["TN-Hab"].push([disc_toUTC(cur, 22), disc_toUTC(sig, 6)]);
@@ -415,34 +328,26 @@ function disc_bloquesNovit(desde, hasta) {
   return b;
 }
 
-// ── llamadas a la API de Novit ────────────────────────────────────────────────
-
-/** Una sola llamada: cuenta alertas finalizadas en el rango UTC [desde, hasta) */
 async function disc_fetchNovit(token, desde, hasta) {
-  const filtro = {
-    estadoActual: "Finalizada",
-    fechaCreacion: { $gte: desde, $lt: hasta },
-  };
+  const filtro = { estadoActual: "Finalizada", fechaCreacion: { $gte: desde, $lt: hasta } };
   const url = `${API_NOVIT}?limit=1000&filter=${encodeURIComponent(JSON.stringify(filtro))}`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const json = await res.json();
-return json.totalCount ?? json.datos?.length ?? 0;
+  return json.totalCount ?? json.datos?.length ?? 0;
 }
 
-/** Suma todos los bloques de un tipo de turno haciendo llamadas en paralelo */
 async function disc_novitPorTurno(token, bloques) {
   if (!bloques.length) return 0;
   const counts = await Promise.all(bloques.map(([d, h]) => disc_fetchNovit(token, d, h)));
   return counts.reduce((a, b) => a + b, 0);
 }
 
-// ── Componente ────────────────────────────────────────────────────────────────
 function AlertaDiscrepancia({ allData, filters }) {
-  const [estado,     setEstado]     = useState("idle"); // idle|sin_token|cargando|ok|alerta|error
+  const [estado, setEstado] = useState("idle");
   const [resultados, setResultados] = useState([]);
   const [ultimaCheck, setUltimaCheck] = useState(null);
-  const [expandido,  setExpandido]  = useState(true);
+  const [expandido, setExpandido] = useState(true);
 
   const desde = filters.fechaDesde || todayStr();
   const hasta  = filters.fechaHasta || todayStr();
@@ -450,61 +355,28 @@ function AlertaDiscrepancia({ allData, filters }) {
   useEffect(() => {
     if (!allData.length) return;
     let cancelado = false;
-
     async function run() {
-      const token =
-        window._novitToken ||
-        localStorage.getItem("novit_token") ||
-        sessionStorage.getItem("novit_token");
-
+      const token = window._novitToken || localStorage.getItem("novit_token") || sessionStorage.getItem("novit_token");
       if (!token) { setEstado("sin_token"); return; }
-
-      setEstado("cargando");
-      setResultados([]);
-
-      // 1. Contar Supabase usando fecha+horario locales
+      setEstado("cargando"); setResultados([]);
       const supaCounts = disc_contarSupa(allData, desde, hasta);
-
-      // 2. Generar bloques UTC para Novit
       const bloques = disc_bloquesNovit(desde, hasta);
-
-      // 3. Filtrar turnos según el filtro del panel
       let shiftsDef = DISC_SHIFTS;
       if (filters.turno) {
         const ids = DISC_TURNO_MAP[filters.turno] || [];
         shiftsDef = shiftsDef.filter(s => ids.includes(s.id));
       }
-      // Solo mostrar turnos que tienen días en el rango
       shiftsDef = shiftsDef.filter(s => bloques[s.id].length > 0 || supaCounts[s.id] > 0);
-
       try {
-        // 4. Consultar Novit para todos los turnos en paralelo
         const checks = await Promise.all(shiftsDef.map(async (s) => {
-          const supaTotal  = supaCounts[s.id];
+          const supaTotal = supaCounts[s.id];
           const blsDelTurno = bloques[s.id];
-
-          let novit    = null;
-          let errorMsg = null;
-          try {
-            novit = await disc_novitPorTurno(token, blsDelTurno);
-          } catch (e) {
-            errorMsg = e.message;
-          }
-
-          const faltantes    = novit !== null ? novit - supaTotal : null;
+          let novit = null, errorMsg = null;
+          try { novit = await disc_novitPorTurno(token, blsDelTurno); } catch (e) { errorMsg = e.message; }
+          const faltantes = novit !== null ? novit - supaTotal : null;
           const discrepancia = faltantes !== null && faltantes > 0;
-
-          return {
-            ...s,
-            supabase:    supaTotal,
-            novit,
-            faltantes,
-            discrepancia,
-            error: errorMsg,
-            dias:  blsDelTurno.length,
-          };
+          return { ...s, supabase: supaTotal, novit, faltantes, discrepancia, error: errorMsg, dias: blsDelTurno.length };
         }));
-
         if (cancelado) return;
         setResultados(checks);
         setUltimaCheck(new Date().toLocaleTimeString("es-AR"));
@@ -513,186 +385,86 @@ function AlertaDiscrepancia({ allData, filters }) {
         if (!cancelado) setEstado("error");
       }
     }
-
     run();
     return () => { cancelado = true; };
   }, [allData, desde, hasta, filters.turno]);
 
-  // ── Render: sin token ──────────────────────────────────────────────────────
   if (estado === "idle") return null;
 
   if (estado === "sin_token") return (
-    <div style={{
-      background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.35)",
-      borderRadius: 12, padding: "12px 18px", marginBottom: 16,
-      display: "flex", alignItems: "flex-start", gap: 12,
-    }}>
-      <span style={{ fontSize: 20, flexShrink: 0 }}>🔑</span>
+    <div style={{background:"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.35)",borderRadius:12,padding:"12px 18px",marginBottom:16,display:"flex",alignItems:"flex-start",gap:12}}>
+      <span style={{fontSize:20,flexShrink:0}}>🔑</span>
       <div>
-        <div style={{ fontSize: 12, fontWeight: 700, color: T.amber, marginBottom: 4, fontFamily: "'Inter',sans-serif" }}>
-          Token de Novit no configurado
-        </div>
-        <div style={{ fontSize: 11, color: T.text2, lineHeight: 1.6, fontFamily: "'Inter',sans-serif" }}>
-          Abrí la consola del browser y ejecutá:
-        </div>
-        <code style={{
-          display: "block", marginTop: 6, background: "rgba(0,0,0,0.3)",
-          padding: "6px 10px", borderRadius: 6, fontSize: 10, color: "#a5f3fc",
-          lineHeight: 1.8, fontFamily: "monospace",
-        }}>
+        <div style={{fontSize:12,fontWeight:700,color:T.amber,marginBottom:4,fontFamily:"'Inter',sans-serif"}}>Token de Novit no configurado</div>
+        <div style={{fontSize:11,color:T.text2,lineHeight:1.6,fontFamily:"'Inter',sans-serif"}}>Abrí la consola del browser y ejecutá:</div>
+        <code style={{display:"block",marginTop:6,background:"rgba(0,0,0,0.3)",padding:"6px 10px",borderRadius:6,fontSize:10,color:"#a5f3fc",lineHeight:1.8,fontFamily:"monospace"}}>
           localStorage.setItem('novit_token', 'TU_TOKEN_AQUÍ')
         </code>
-        <div style={{ fontSize: 10, color: T.muted, marginTop: 4, fontFamily: "'Inter',sans-serif" }}>
-          Después recargá la página.
-        </div>
+        <div style={{fontSize:10,color:T.muted,marginTop:4,fontFamily:"'Inter',sans-serif"}}>Después recargá la página.</div>
       </div>
     </div>
   );
 
-  // ── Variables de estilo según estado ──────────────────────────────────────
   const cargando  = estado === "cargando";
   const hayAlerta = estado === "alerta";
-  const borderC   = cargando ? T.border : hayAlerta ? "rgba(239,68,68,0.4)"   : "rgba(16,185,129,0.35)";
-  const bgC       = cargando ? "rgba(139,92,246,0.05)" : hayAlerta ? "rgba(239,68,68,0.06)"   : "rgba(16,185,129,0.05)";
+  const borderC   = cargando ? T.border : hayAlerta ? "rgba(239,68,68,0.4)" : "rgba(16,185,129,0.35)";
+  const bgC       = cargando ? "rgba(139,92,246,0.05)" : hayAlerta ? "rgba(239,68,68,0.06)" : "rgba(16,185,129,0.05)";
   const icono     = cargando ? "⏳" : hayAlerta ? "🚨" : "✅";
   const periodo   = desde === hasta ? desde : `${desde} → ${hasta}`;
-
   const totalNovit = resultados.reduce((a, r) => a + (r.novit ?? 0), 0);
   const totalSupa  = resultados.reduce((a, r) => a + r.supabase, 0);
   const totalFalt  = resultados.filter(r => !r.error).reduce((a, r) => a + Math.max(r.faltantes ?? 0, 0), 0);
-
-  const tituloMensaje = cargando
-    ? "Verificando discrepancias con Novit…"
-    : hayAlerta
-    ? `Discrepancia detectada — ${resultados.filter(r => r.discrepancia).length} turno(s) con alertas sin cargar en Supabase`
-    : "Sin discrepancias — Supabase coincide con Novit en todos los turnos";
+  const tituloMensaje = cargando ? "Verificando discrepancias con Novit…" : hayAlerta ? `Discrepancia detectada — ${resultados.filter(r => r.discrepancia).length} turno(s) con alertas sin cargar en Supabase` : "Sin discrepancias — Supabase coincide con Novit en todos los turnos";
 
   return (
-    <div style={{ background: bgC, border: `1px solid ${borderC}`, borderRadius: 12, marginBottom: 16, overflow: "hidden" }}>
-
-      {/* ── Cabecera clicable ── */}
-      <div
-        onClick={() => !cargando && setExpandido(e => !e)}
-        style={{ padding: "12px 18px", display: "flex", alignItems: "center", gap: 10, cursor: cargando ? "default" : "pointer" }}
-      >
-        <span style={{ fontSize: 18, flexShrink: 0 }}>{icono}</span>
-        <div style={{ flex: 1 }}>
-          <div style={{
-            fontSize: 12, fontWeight: 700, fontFamily: "'Inter',sans-serif",
-            color: cargando ? T.text2 : hayAlerta ? "#fca5a5" : "#6ee7b7",
-          }}>
-            {tituloMensaje}
-          </div>
+    <div style={{background:bgC,border:`1px solid ${borderC}`,borderRadius:12,marginBottom:16,overflow:"hidden"}}>
+      <div onClick={()=>!cargando&&setExpandido(e=>!e)} style={{padding:"12px 18px",display:"flex",alignItems:"center",gap:10,cursor:cargando?"default":"pointer"}}>
+        <span style={{fontSize:18,flexShrink:0}}>{icono}</span>
+        <div style={{flex:1}}>
+          <div style={{fontSize:12,fontWeight:700,fontFamily:"'Inter',sans-serif",color:cargando?T.text2:hayAlerta?"#fca5a5":"#6ee7b7"}}>{tituloMensaje}</div>
           {ultimaCheck && (
-            <div style={{
-              fontSize: 10, color: T.muted, marginTop: 3,
-              fontFamily: "'Inter',sans-serif", display: "flex", gap: 14, flexWrap: "wrap",
-            }}>
+            <div style={{fontSize:10,color:T.muted,marginTop:3,fontFamily:"'Inter',sans-serif",display:"flex",gap:14,flexWrap:"wrap"}}>
               <span>🕐 {ultimaCheck}</span>
               <span>📅 {periodo}</span>
               {filters.turno && <span>🔄 Turno: {filters.turno}</span>}
               {!cargando && resultados.length > 0 && (
-                <span>
-                  Novit: <b style={{ color: T.text }}>{totalNovit.toLocaleString()}</b>
-                  {" "}·{" "}
-                  Supa: <b style={{ color: T.text }}>{totalSupa.toLocaleString()}</b>
-                  {totalFalt > 0 && (
-                    <b style={{ color: T.red }}>{" "}· ⚠ Faltantes: {totalFalt.toLocaleString()}</b>
-                  )}
-                </span>
+                <span>Novit: <b style={{color:T.text}}>{totalNovit.toLocaleString()}</b> · Supa: <b style={{color:T.text}}>{totalSupa.toLocaleString()}</b>{totalFalt>0&&<b style={{color:T.red}}> · ⚠ Faltantes: {totalFalt.toLocaleString()}</b>}</span>
               )}
             </div>
           )}
         </div>
-        {!cargando && resultados.length > 0 && (
-          <span style={{
-            fontSize: 11, color: T.muted, flexShrink: 0,
-            transform: expandido ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s",
-          }}>▼</span>
-        )}
+        {!cargando && resultados.length > 0 && <span style={{fontSize:11,color:T.muted,flexShrink:0,transform:expandido?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.2s"}}>▼</span>}
       </div>
-
-      {/* ── Grilla de tarjetas por turno ── */}
       {!cargando && expandido && resultados.length > 0 && (
-        <div style={{
-          borderTop: `1px solid ${borderC}`,
-          padding: "12px 18px",
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(195px, 1fr))",
-          gap: 10,
-        }}>
+        <div style={{borderTop:`1px solid ${borderC}`,padding:"12px 18px",display:"grid",gridTemplateColumns:"repeat(auto-fill, minmax(195px, 1fr))",gap:10}}>
           {resultados.map(r => {
-            const ok    = !r.discrepancia && !r.error;
+            const ok = !r.discrepancia && !r.error;
             const color = r.error ? T.amber : ok ? T.green : T.red;
-            const bg    = r.error ? "rgba(245,158,11,0.07)" : ok ? "rgba(16,185,129,0.07)" : "rgba(239,68,68,0.07)";
-
+            const bg = r.error ? "rgba(245,158,11,0.07)" : ok ? "rgba(16,185,129,0.07)" : "rgba(239,68,68,0.07)";
             return (
-              <div key={r.id} style={{ background: bg, border: `1px solid ${color}33`, borderRadius: 10, padding: "10px 14px" }}>
-
-                {/* Título + badge */}
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color, fontFamily: "'Inter',sans-serif" }}>
-                    {r.emoji} {r.label}
-                  </span>
-                  <span style={{
-                    fontSize: 9, padding: "2px 7px", borderRadius: 10, fontWeight: 600,
-                    fontFamily: "'Inter',sans-serif",
-                    background: r.error ? "rgba(245,158,11,0.15)" : ok ? "rgba(16,185,129,0.12)" : "rgba(239,68,68,0.15)",
-                    color: r.error ? T.amber : ok ? T.green : T.red,
-                  }}>
-                    {r.error ? "ERROR" : ok ? "OK" : "FALTANTES"}
-                  </span>
+              <div key={r.id} style={{background:bg,border:`1px solid ${color}33`,borderRadius:10,padding:"10px 14px"}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
+                  <span style={{fontSize:12,fontWeight:700,color,fontFamily:"'Inter',sans-serif"}}>{r.emoji} {r.label}</span>
+                  <span style={{fontSize:9,padding:"2px 7px",borderRadius:10,fontWeight:600,fontFamily:"'Inter',sans-serif",background:r.error?"rgba(245,158,11,0.15)":ok?"rgba(16,185,129,0.12)":"rgba(239,68,68,0.15)",color:r.error?T.amber:ok?T.green:T.red}}>{r.error?"ERROR":ok?"OK":"FALTANTES"}</span>
                 </div>
-
-                {/* Meta: rango horario + cantidad de días */}
-                <div style={{ display: "flex", gap: 5, marginBottom: 8, flexWrap: "wrap" }}>
-                  <span style={{
-                    fontSize: 9, color: T.muted, fontFamily: "'Inter',sans-serif",
-                    background: "rgba(255,255,255,0.04)", padding: "2px 7px", borderRadius: 5,
-                  }}>{r.rango}</span>
-                  <span style={{
-                    fontSize: 9, color: T.muted, fontFamily: "'Inter',sans-serif",
-                    background: "rgba(255,255,255,0.04)", padding: "2px 7px", borderRadius: 5,
-                  }}>{r.dias} {r.dias === 1 ? "día" : "días"}</span>
+                <div style={{display:"flex",gap:5,marginBottom:8,flexWrap:"wrap"}}>
+                  <span style={{fontSize:9,color:T.muted,fontFamily:"'Inter',sans-serif",background:"rgba(255,255,255,0.04)",padding:"2px 7px",borderRadius:5}}>{r.rango}</span>
+                  <span style={{fontSize:9,color:T.muted,fontFamily:"'Inter',sans-serif",background:"rgba(255,255,255,0.04)",padding:"2px 7px",borderRadius:5}}>{r.dias} {r.dias===1?"día":"días"}</span>
                 </div>
-
-                {/* Cifras Novit vs Supabase */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
-                  {[
-                    ["Novit (esperado)",    r.novit !== null ? r.novit.toLocaleString() : "—", T.text],
-                    ["Supabase (cargado)",  r.supabase.toLocaleString(), r.discrepancia ? T.red : T.text],
-                  ].map(([lbl, val, col]) => (
-                    <div key={lbl} style={{ background: "rgba(0,0,0,0.22)", borderRadius: 7, padding: "6px 9px" }}>
-                      <div style={{
-                        fontSize: 8, color: T.muted, fontFamily: "'Inter',sans-serif",
-                        marginBottom: 2, textTransform: "uppercase", letterSpacing: "0.05em",
-                      }}>{lbl}</div>
-                      <div style={{
-                        fontSize: 18, fontWeight: 800, color: col,
-                        fontFamily: "'Inter',sans-serif", lineHeight: 1,
-                      }}>{val}</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5}}>
+                  {[["Novit (esperado)", r.novit!==null?r.novit.toLocaleString():"—", T.text],["Supabase (cargado)", r.supabase.toLocaleString(), r.discrepancia?T.red:T.text]].map(([lbl,val,col])=>(
+                    <div key={lbl} style={{background:"rgba(0,0,0,0.22)",borderRadius:7,padding:"6px 9px"}}>
+                      <div style={{fontSize:8,color:T.muted,fontFamily:"'Inter',sans-serif",marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em"}}>{lbl}</div>
+                      <div style={{fontSize:18,fontWeight:800,color:col,fontFamily:"'Inter',sans-serif",lineHeight:1}}>{val}</div>
                     </div>
                   ))}
                 </div>
-
-                {/* Alerta de faltantes */}
                 {r.discrepancia && r.faltantes > 0 && (
-                  <div style={{
-                    marginTop: 7, padding: "5px 9px",
-                    background: "rgba(239,68,68,0.12)", borderRadius: 7,
-                    fontSize: 11, color: "#fca5a5", fontWeight: 600,
-                    fontFamily: "'Inter',sans-serif", display: "flex", alignItems: "center", gap: 5,
-                  }}>
+                  <div style={{marginTop:7,padding:"5px 9px",background:"rgba(239,68,68,0.12)",borderRadius:7,fontSize:11,color:"#fca5a5",fontWeight:600,fontFamily:"'Inter',sans-serif",display:"flex",alignItems:"center",gap:5}}>
                     ⚠ {r.faltantes.toLocaleString()} alertas sin cargar
                   </div>
                 )}
-
-                {/* Mensaje de error */}
-                {r.error && (
-                  <div style={{ marginTop: 6, fontSize: 10, color: T.amber, fontFamily: "'Inter',sans-serif" }}>
-                    Error: {r.error}
-                  </div>
-                )}
+                {r.error && <div style={{marginTop:6,fontSize:10,color:T.amber,fontFamily:"'Inter',sans-serif"}}>Error: {r.error}</div>}
               </div>
             );
           })}
@@ -700,7 +472,7 @@ function AlertaDiscrepancia({ allData, filters }) {
       )}
     </div>
   );
-} // fin AlertaDiscrepancia
+}
 
 // ─── VISTA EJECUTIVO ──────────────────────────────────────────────────────────
 function ViewEjecutivo({ data, prevData }) {
@@ -739,7 +511,6 @@ function ViewEjecutivo({ data, prevData }) {
         <KPI label="Día Más Activo" value={DIAS[dowMax]} sub={`${fmt(byDow[dowMax])} alertas`} color="#f472b6" icon="📅"/>
         <KPI label="Finde vs Hábil" value={`${total>0?((finde/total)*100).toFixed(0):0}% finde`} sub={`${fmt(finde)} finde · ${fmt(semana)} hábil`} color={T.red} icon="🗓"/>
       </div>
-
       <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:14,marginBottom:14}}>
         <Card title="Distribución por Categoría" icon="📂">
           {topCats.map(([cat,val])=><HBar key={cat} label={cat} value={val} max={catMax} color={catColor(cat)} total={total}/>)}
@@ -753,7 +524,6 @@ function ViewEjecutivo({ data, prevData }) {
           </Card>
         </div>
       </div>
-
       <Card title="Evolución Diaria" icon="📈">
         {dailyVals.length<2?<div style={{color:T.muted,fontSize:11}}>Sin datos</div>:(
           <svg viewBox={`0 0 ${W} ${H}`} style={{width:"100%",height:110}}>
@@ -989,6 +759,402 @@ function ViewMapa({ data, filters, setFilters }) {
   );
 }
 
+// ─── VISTA USUARIOS ───────────────────────────────────────────────────────────
+const AGE_RANGES = [
+  { label: "< 18",   min: 0,   max: 17,  color: "#38bdf8" },
+  { label: "18–30",  min: 18,  max: 30,  color: "#8b5cf6" },
+  { label: "31–45",  min: 31,  max: 45,  color: "#10b981" },
+  { label: "46–60",  min: 46,  max: 60,  color: "#f59e0b" },
+  { label: "61–75",  min: 61,  max: 75,  color: "#ef4444" },
+  { label: "> 75",   min: 76,  max: 999, color: "#f472b6" },
+];
+
+function getAgeRange(age) {
+  if (age == null || isNaN(age)) return "Sin dato";
+  for (const r of AGE_RANGES) {
+    if (age >= r.min && age <= r.max) return r.label;
+  }
+  return "Sin dato";
+}
+
+function MiniDonut({ segments, size = 80 }) {
+  const total = segments.reduce((a, s) => a + s.value, 0);
+  if (!total) return null;
+  const r = 28, cx = size / 2, cy = size / 2, strokeW = 11;
+  let offset = 0;
+  const circ = 2 * Math.PI * r;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      {segments.map((s, i) => {
+        const frac = s.value / total;
+        const dash = frac * circ;
+        const el = (
+          <circle
+            key={i}
+            cx={cx} cy={cy} r={r}
+            fill="none"
+            stroke={s.color}
+            strokeWidth={strokeW}
+            strokeDasharray={`${dash} ${circ - dash}`}
+            strokeDashoffset={-offset}
+            style={{ transform: `rotate(-90deg)`, transformOrigin: `${cx}px ${cy}px` }}
+            opacity="0.85"
+          />
+        );
+        offset += dash;
+        return el;
+      })}
+      <circle cx={cx} cy={cy} r={r - strokeW / 2 - 2} fill={T.card} />
+    </svg>
+  );
+}
+
+function ViewUsuarios() {
+  const [estado, setEstado] = useState("idle"); // idle | sin_token | cargando | ok | error
+  const [usuarios, setUsuarios] = useState([]);
+  const [totalCount, setTotalCount] = useState(null);
+  const [ultimaActualizacion, setUltimaActualizacion] = useState(null);
+  const [paginaRecientes, setPaginaRecientes] = useState(0);
+  const POR_PAGINA = 8;
+
+  // Fetch desde la API de Novit
+  async function cargarUsuarios() {
+    const token =
+      window._novitToken ||
+      localStorage.getItem("novit_token") ||
+      sessionStorage.getItem("novit_token");
+
+    if (!token) { setEstado("sin_token"); return; }
+
+    setEstado("cargando");
+    try {
+      // Traemos hasta 500 usuarios activos para análisis
+      const populate = JSON.stringify([
+        { path: "cliente", select: "idCategoriaDefault categoriaDefault", populate: { path: "categoriaDefault", select: "nombre" } },
+        { path: "categoria.categoria", select: "nombre" },
+        { path: "categoria.usuario", select: "usuario" },
+        { path: "direccion.localidad", select: "nombre" },
+        { path: "direccion.barrio", select: "nombre" },
+      ]);
+      const filter = JSON.stringify({ $and: [{ activo: "true" }] });
+      const url = `${VECINOS_API}?limit=500&sort=-fechaCreacion&populate=${encodeURIComponent(populate)}&filter=${encodeURIComponent(filter)}`;
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      setTotalCount(json.totalCount ?? json.datos?.length ?? 0);
+      setUsuarios(json.datos || []);
+      setUltimaActualizacion(new Date().toLocaleTimeString("es-AR"));
+      setEstado("ok");
+    } catch (e) {
+      setEstado("error");
+    }
+  }
+
+  useEffect(() => { cargarUsuarios(); }, []);
+
+  // ── Sin token ────────────────────────────────────────────────────────────────
+  if (estado === "sin_token") return (
+    <div style={{ padding: 40, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+      <div style={{ fontSize: 32 }}>🔑</div>
+      <div style={{ fontSize: 14, fontWeight: 700, color: T.amber, fontFamily: "'Inter',sans-serif" }}>Token de Novit no configurado</div>
+      <code style={{ background: "rgba(0,0,0,0.4)", padding: "8px 14px", borderRadius: 8, fontSize: 11, color: "#a5f3fc", fontFamily: "monospace" }}>
+        localStorage.setItem('novit_token', 'TU_TOKEN_AQUÍ')
+      </code>
+    </div>
+  );
+
+  // ── Cargando ─────────────────────────────────────────────────────────────────
+  if (estado === "cargando") return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: 300, gap: 16 }}>
+      <div style={{ width: 44, height: 44, borderRadius: 12, background: `linear-gradient(135deg,${T.accent},${T.accent2})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, opacity: 0.6 }}>👥</div>
+      <div style={{ fontSize: 12, color: T.muted, fontWeight: 500, fontFamily: "'Inter',sans-serif" }}>Cargando usuarios desde Novit…</div>
+    </div>
+  );
+
+  // ── Error ────────────────────────────────────────────────────────────────────
+  if (estado === "error") return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: 300, gap: 12 }}>
+      <div style={{ fontSize: 32 }}>⚠️</div>
+      <div style={{ fontSize: 13, color: T.red, fontFamily: "'Inter',sans-serif" }}>Error al cargar usuarios</div>
+      <button onClick={cargarUsuarios} style={{ background: `rgba(139,92,246,0.15)`, border: `1px solid ${T.accent}`, color: T.accent, borderRadius: 10, padding: "8px 20px", fontSize: 12, fontFamily: "'Inter',sans-serif", cursor: "pointer", fontWeight: 600 }}>
+        ↺ Reintentar
+      </button>
+    </div>
+  );
+
+  // ── Derivaciones ─────────────────────────────────────────────────────────────
+  const total = totalCount ?? usuarios.length;
+  const muestra = usuarios.length;
+
+  // Edad
+  const edades = usuarios.map(u => u.edad).filter(e => e != null && !isNaN(e));
+  const edadProm = edades.length ? (edades.reduce((a, b) => a + b, 0) / edades.length).toFixed(1) : "—";
+  const edadMin = edades.length ? Math.min(...edades) : "—";
+  const edadMax = edades.length ? Math.max(...edades) : "—";
+
+  const porRangoEdad = AGE_RANGES.map(r => ({
+    label: r.label,
+    color: r.color,
+    value: edades.filter(e => e >= r.min && e <= r.max).length,
+  })).filter(r => r.value > 0);
+
+  // Sexo
+  const porSexo = usuarios.reduce((acc, u) => {
+    const s = u.sexo || "Sin dato";
+    acc[s] = (acc[s] || 0) + 1;
+    return acc;
+  }, {});
+  const sexoColors = { M: "#38bdf8", F: "#f472b6", "Sin dato": T.muted };
+
+  // Localidad/CGM
+  const porLocalidad = {};
+  usuarios.forEach(u => {
+    const loc = u.direccion?.localidad?.nombre || u.localidad || "Sin dato";
+    porLocalidad[loc] = (porLocalidad[loc] || 0) + 1;
+  });
+  const topLocalidades = topN(porLocalidad, 10);
+  const locMax = Math.max(...topLocalidades.map(([, v]) => v), 1);
+
+  // Plataforma
+  const porPlataforma = usuarios.reduce((acc, u) => {
+    const p = u.tipoDispositivo || u.dispositivo || "Sin dato";
+    acc[p] = (acc[p] || 0) + 1;
+    return acc;
+  }, {});
+
+  // DNI escaneado
+  const conDni = usuarios.filter(u => u.dniEscaneado === true || u.dniEscaneado === "true").length;
+  const sinDni = muestra - conDni;
+
+  // Categoría especial
+  const categorias = {};
+  usuarios.forEach(u => {
+    const cats = u.categoria || [];
+    if (!cats.length) {
+      categorias["Sin categoría"] = (categorias["Sin categoría"] || 0) + 1;
+    } else {
+      cats.forEach(c => {
+        const nombre = c.categoria?.nombre || "Sin dato";
+        categorias[nombre] = (categorias[nombre] || 0) + 1;
+      });
+    }
+  });
+  const topCategorias = topN(categorias, 8);
+
+  // Altas por fecha (evolución)
+  const altasPorFecha = {};
+  usuarios.forEach(u => {
+    const f = u.fechaCreacion?.slice(0, 10);
+    if (f) altasPorFecha[f] = (altasPorFecha[f] || 0) + 1;
+  });
+  const altasEntries = Object.entries(altasPorFecha).sort((a, b) => a[0].localeCompare(b[0]));
+  const altasVals = altasEntries.map(([, v]) => v);
+
+  // Últimos registrados
+  const recientes = [...usuarios].sort((a, b) => new Date(b.fechaCreacion) - new Date(a.fechaCreacion));
+  const pageStart = paginaRecientes * POR_PAGINA;
+  const recientesPagina = recientes.slice(pageStart, pageStart + POR_PAGINA);
+  const totalPaginas = Math.ceil(recientes.length / POR_PAGINA);
+
+  // ── Gráfico de evolución SVG ──────────────────────────────────────────────
+  const W = 700, H = 90, PAD = 8;
+  const altasMax = Math.max(...altasVals, 1);
+  const altasPts = altasVals.map((v, i) => [
+    PAD + (i / (altasVals.length - 1 || 1)) * (W - PAD * 2),
+    H - PAD - ((v / altasMax) * (H - PAD * 2)),
+  ]);
+  const altasPolyline = altasPts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  const altasArea = `${PAD},${H} ${altasPolyline} ${W - PAD},${H}`;
+  const altasStep = Math.max(1, Math.floor(altasVals.length / 6));
+
+  // Mes actual
+  const ahora = new Date();
+  const mesActual = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, "0")}`;
+  const altasMes = usuarios.filter(u => u.fechaCreacion?.startsWith(mesActual)).length;
+
+  return (
+    <div>
+      {/* Header de actualización */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <div style={{ fontSize: 10, color: T.muted, fontFamily: "'Inter',sans-serif" }}>
+          {ultimaActualizacion && <>🕐 Actualizado: {ultimaActualizacion} · Muestra: {muestra.toLocaleString()} de {total.toLocaleString()} usuarios activos</>}
+        </div>
+        <button onClick={cargarUsuarios} style={{ background: "rgba(139,92,246,0.12)", border: `1px solid ${T.border}`, color: T.text2, borderRadius: 8, padding: "5px 14px", fontSize: 10, fontFamily: "'Inter',sans-serif", cursor: "pointer", fontWeight: 600 }}>
+          ↺ Actualizar
+        </button>
+      </div>
+
+      {/* KPIs principales */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(175px,1fr))", gap: 12, marginBottom: 20 }}>
+        <KPI label="Usuarios Activos" value={fmt(total)} sub="en el sistema" color={T.accent} icon="👥"/>
+        <KPI label="Altas Este Mes" value={fmt(altasMes)} sub={`de ${muestra} en muestra`} color={T.green} icon="📈"/>
+        <KPI label="Edad Promedio" value={edadProm !== "—" ? `${edadProm} años` : "—"} sub={`mín ${edadMin} · máx ${edadMax}`} color="#38bdf8" icon="🎂"/>
+        <KPI label="Con DNI Escaneado" value={muestra > 0 ? `${((conDni / muestra) * 100).toFixed(0)}%` : "—"} sub={`${fmt(conDni)} de ${fmt(muestra)}`} color={T.amber} icon="🪪"/>
+        <KPI label="Sin Categoría" value={fmt(categorias["Sin categoría"] || 0)} sub={`${muestra > 0 ? (((categorias["Sin categoría"] || 0) / muestra) * 100).toFixed(0) : 0}% del total`} color={T.red} icon="📂"/>
+      </div>
+
+      {/* Fila 1: Localidad + Rango edad + Sexo */}
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1.2fr 0.8fr", gap: 14, marginBottom: 14 }}>
+
+        {/* Localidades */}
+        <Card title="Usuarios por Localidad / CGM" icon="📍">
+          {topLocalidades.map(([loc, val]) => (
+            <HBar key={loc} label={loc} value={val} max={locMax} color={T.accent} total={muestra} />
+          ))}
+        </Card>
+
+        {/* Rango de edad */}
+        <Card title="Rango de Edad" icon="🎂">
+          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
+            <MiniDonut segments={porRangoEdad} size={80} />
+            <div style={{ flex: 1 }}>
+              {porRangoEdad.map(r => (
+                <div key={r.label} style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 5 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: 2, background: r.color, flexShrink: 0 }} />
+                  <span style={{ fontSize: 10, color: T.text2, flex: 1, fontFamily: "'Inter',sans-serif" }}>{r.label}</span>
+                  <span style={{ fontSize: 11, color: T.text, fontWeight: 700, fontFamily: "'Inter',sans-serif" }}>{fmt(r.value)}</span>
+                  <span style={{ fontSize: 9, color: T.muted, fontFamily: "'Inter',sans-serif" }}>{edades.length > 0 ? ((r.value / edades.length) * 100).toFixed(0) : 0}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
+
+        {/* Sexo + Plataforma */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <Card title="Sexo" icon="⚤" style={{ flex: 1 }}>
+            {Object.entries(porSexo).map(([s, v]) => (
+              <HBar key={s} label={s === "M" ? "Masculino" : s === "F" ? "Femenino" : s} value={v} max={Math.max(...Object.values(porSexo), 1)} color={sexoColors[s] || T.muted} total={muestra} />
+            ))}
+          </Card>
+          <Card title="Plataforma" icon="📱" style={{ flex: 1 }}>
+            {Object.entries(porPlataforma).slice(0, 4).map(([p, v]) => (
+              <HBar key={p} label={p} value={v} max={Math.max(...Object.values(porPlataforma), 1)} color={p.toLowerCase().includes("ios") ? "#38bdf8" : p.toLowerCase().includes("android") ? "#10b981" : T.muted} total={muestra} />
+            ))}
+          </Card>
+        </div>
+      </div>
+
+      {/* Fila 2: Categorías especiales + DNI + Evolución */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+
+        <Card title="Categorías Especiales" icon="🏷️">
+          {topCategorias.map(([cat, val], i) => {
+            const colors = [T.accent, T.green, T.amber, T.red, "#38bdf8", "#f472b6", "#a78bfa", "#34d399"];
+            return <HBar key={cat} label={cat} value={val} max={Math.max(...topCategorias.map(([, v]) => v), 1)} color={colors[i % colors.length]} total={muestra} />;
+          })}
+        </Card>
+
+        <Card title="Verificación de Identidad (DNI)" icon="🪪">
+          <div style={{ display: "flex", alignItems: "center", gap: 24, marginBottom: 16 }}>
+            <MiniDonut segments={[{ value: conDni, color: T.green }, { value: sinDni, color: "rgba(255,255,255,0.08)" }]} size={80} />
+            <div>
+              <div style={{ fontSize: 28, fontWeight: 800, color: T.green, fontFamily: "'Inter',sans-serif", lineHeight: 1 }}>
+                {muestra > 0 ? `${((conDni / muestra) * 100).toFixed(1)}%` : "—"}
+              </div>
+              <div style={{ fontSize: 11, color: T.text2, marginTop: 4, fontFamily: "'Inter',sans-serif" }}>con DNI escaneado</div>
+            </div>
+          </div>
+          <HBar label="Con DNI" value={conDni} max={muestra} color={T.green} total={muestra} />
+          <HBar label="Sin DNI" value={sinDni} max={muestra} color={T.red} total={muestra} />
+        </Card>
+      </div>
+
+      {/* Evolución de altas */}
+      <Card title="Evolución de Altas (muestra)" icon="📈" style={{ marginBottom: 14 }}>
+        {altasVals.length < 2 ? (
+          <div style={{ color: T.muted, fontSize: 11, fontFamily: "'Inter',sans-serif" }}>Sin suficientes datos para el gráfico</div>
+        ) : (
+          <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: 90 }}>
+            <defs>
+              <linearGradient id="altasGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={T.green} stopOpacity="0.2" />
+                <stop offset="100%" stopColor={T.green} stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            <polygon points={altasArea} fill="url(#altasGrad)" />
+            <polyline points={altasPolyline} fill="none" stroke={T.green} strokeWidth="2" strokeLinejoin="round" />
+            {altasPts.filter((_, i) => i % altasStep === 0).map(([x, y], i) => {
+              const idx = i * altasStep;
+              const [fecha] = altasEntries[idx];
+              const d = new Date(fecha + "T00:00:00");
+              return (
+                <g key={i}>
+                  <circle cx={x} cy={y} r="2.5" fill={T.green} opacity="0.8" />
+                  <text x={x} y={H - 1} textAnchor="middle" fontSize="8" fill={T.muted} fontFamily="Inter">
+                    {d.getDate()}/{d.getMonth() + 1}
+                  </text>
+                </g>
+              );
+            })}
+          </svg>
+        )}
+      </Card>
+
+      {/* Últimos registrados */}
+      <Card title="Últimos Usuarios Registrados" icon="🆕">
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "'Inter',sans-serif" }}>
+            <thead>
+              <tr style={{ borderBottom: `1px solid ${T.border}` }}>
+                {["Nombre", "Edad", "Sexo", "Localidad", "Plataforma", "DNI", "Alta", "Categoría"].map(h => (
+                  <th key={h} style={{ textAlign: "left", padding: "5px 8px", color: T.muted, fontWeight: 600, fontSize: 9, textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {recientesPagina.map((u, i) => {
+                const nombre = [u.nombre, u.apellido].filter(Boolean).join(" ") || u.usuario || "Sin nombre";
+                const localidad = u.direccion?.localidad?.nombre || u.localidad || "—";
+                const plat = u.tipoDispositivo || u.dispositivo || "—";
+                const dniOk = u.dniEscaneado === true || u.dniEscaneado === "true";
+                const fechaAlta = u.fechaCreacion ? new Date(u.fechaCreacion).toLocaleDateString("es-AR") : "—";
+                const cats = (u.categoria || []).map(c => c.categoria?.nombre).filter(Boolean).join(", ") || "—";
+                const sexoLabel = u.sexo === "M" ? "♂ M" : u.sexo === "F" ? "♀ F" : u.sexo || "—";
+                return (
+                  <tr key={i} style={{ borderBottom: `1px solid rgba(255,255,255,0.04)`, transition: "background 0.1s" }}>
+                    <td style={{ padding: "6px 8px", color: T.text, maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nombre}</td>
+                    <td style={{ padding: "6px 8px", color: T.text2 }}>{u.edad ?? "—"}</td>
+                    <td style={{ padding: "6px 8px", color: u.sexo === "M" ? "#38bdf8" : u.sexo === "F" ? "#f472b6" : T.muted }}>{sexoLabel}</td>
+                    <td style={{ padding: "6px 8px", color: T.text2, maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{localidad}</td>
+                    <td style={{ padding: "6px 8px" }}>
+                      <span style={{ fontSize: 9, background: plat.toLowerCase().includes("ios") ? "rgba(56,189,248,0.15)" : plat.toLowerCase().includes("android") ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.06)", color: plat.toLowerCase().includes("ios") ? "#38bdf8" : plat.toLowerCase().includes("android") ? T.green : T.muted, borderRadius: 5, padding: "2px 7px", fontWeight: 600 }}>
+                        {plat}
+                      </span>
+                    </td>
+                    <td style={{ padding: "6px 8px" }}>
+                      <span style={{ fontSize: 10, color: dniOk ? T.green : T.red }}>{dniOk ? "✓" : "✗"}</span>
+                    </td>
+                    <td style={{ padding: "6px 8px", color: T.muted, whiteSpace: "nowrap" }}>{fechaAlta}</td>
+                    <td style={{ padding: "6px 8px", color: T.text2, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cats}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Paginación */}
+        {totalPaginas > 1 && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 12 }}>
+            <button
+              onClick={() => setPaginaRecientes(p => Math.max(0, p - 1))}
+              disabled={paginaRecientes === 0}
+              style={{ background: "rgba(139,92,246,0.1)", border: `1px solid ${T.border}`, color: paginaRecientes === 0 ? T.muted : T.text2, borderRadius: 7, padding: "4px 12px", fontSize: 11, cursor: paginaRecientes === 0 ? "default" : "pointer", fontFamily: "'Inter',sans-serif" }}
+            >← Ant</button>
+            <span style={{ fontSize: 10, color: T.muted, fontFamily: "'Inter',sans-serif" }}>{paginaRecientes + 1} / {totalPaginas}</span>
+            <button
+              onClick={() => setPaginaRecientes(p => Math.min(totalPaginas - 1, p + 1))}
+              disabled={paginaRecientes >= totalPaginas - 1}
+              style={{ background: "rgba(139,92,246,0.1)", border: `1px solid ${T.border}`, color: paginaRecientes >= totalPaginas - 1 ? T.muted : T.text2, borderRadius: 7, padding: "4px 12px", fontSize: 11, cursor: paginaRecientes >= totalPaginas - 1 ? "default" : "pointer", fontFamily: "'Inter',sans-serif" }}
+            >Sig →</button>
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
 // ─── APP PRINCIPAL ────────────────────────────────────────────────────────────
 export default function App() {
   const [allData, setAllData] = useState([]);
@@ -1070,12 +1236,14 @@ export default function App() {
   },[allData,filters]);
 
   const TABS=[
-    {id:"mapa",    label:"Mapa",      icon:"◎"},
-    {id:"ejecutivo",label:"Ejecutivo", icon:"◈"},
-    {id:"temporal", label:"Temporal",  icon:"◷"},
-    {id:"cgm",     label:"Por Zona",  icon:"◉"},
+    {id:"mapa",      label:"Mapa",      icon:"◎"},
+    {id:"ejecutivo", label:"Ejecutivo", icon:"◈"},
+    {id:"temporal",  label:"Temporal",  icon:"◷"},
+    {id:"cgm",       label:"Por Zona",  icon:"◉"},
+    {id:"usuarios",  label:"Usuarios",  icon:"◍"},
   ];
 
+  const isUsuariosTab = view === "usuarios";
   const now = new Date();
   const dateLabel = now.toLocaleDateString("es-AR",{day:"2-digit",month:"short",year:"numeric"});
 
@@ -1089,7 +1257,6 @@ export default function App() {
         ::-webkit-scrollbar-track{background:${T.bg};}
         ::-webkit-scrollbar-thumb{background:rgba(139,92,246,0.3);border-radius:3px;}
         ::-webkit-scrollbar-thumb:hover{background:rgba(139,92,246,0.5);}
-
         @media print {
           @page { size: A4 landscape; margin: 12mm 10mm; }
           body { background: #fff !important; color: #111 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -1123,7 +1290,12 @@ export default function App() {
           <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:16}}>
             <div style={{textAlign:"right"}}>
               <div style={{fontSize:11,color:T.text2,fontWeight:500}}>
-                {loading?`Cargando… ${loadProgress.toLocaleString()} reg.`:`${allData.length.toLocaleString()} registros · ${filteredData.length.toLocaleString()} filtrados`}
+                {loading
+                  ? `Cargando… ${loadProgress.toLocaleString()} reg.`
+                  : isUsuariosTab
+                  ? `Dashboard de Vecinos/Usuarios`
+                  : `${allData.length.toLocaleString()} registros · ${filteredData.length.toLocaleString()} filtrados`
+                }
               </div>
               <div style={{fontSize:10,color:T.muted,marginTop:2}}>{dateLabel}</div>
             </div>
@@ -1143,23 +1315,26 @@ export default function App() {
 
           {error&&<div style={{background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.3)",borderRadius:10,padding:"10px 14px",color:"#fca5a5",fontSize:12,marginBottom:14}}>⚠ Error Supabase: {error}</div>}
 
-          {/* ── ALERTA DISCREPANCIA NOVIT vs SUPABASE ── */}
-          {!loading && <AlertaDiscrepancia allData={allData} filters={filters}/>}
+          {/* Alerta discrepancia — solo en tabs de alertas */}
+          {!loading && !isUsuariosTab && <AlertaDiscrepancia allData={allData} filters={filters}/>}
 
-          {/* ── FILTROS ── */}
-          <div className="no-print">
-            <FiltersPanel filters={filters} setFilters={setFilters} options={options} open={filtersOpen} setOpen={setFiltersOpen}/>
-          </div>
+          {/* Filtros — ocultos en tab usuarios */}
+          {!isUsuariosTab && (
+            <div className="no-print">
+              <FiltersPanel filters={filters} setFilters={setFilters} options={options} open={filtersOpen} setOpen={setFiltersOpen}/>
+            </div>
+          )}
 
-          {/* ── TABS + ZONA ACTIVA + PDF ── */}
+          {/* ── TABS ── */}
           <div className="no-print" style={{display:"flex",alignItems:"center",gap:6,marginBottom:20,flexWrap:"wrap"}}>
             {TABS.map(t=>{
               const isActive = view===t.id;
+              const isUsers = t.id === "usuarios";
               return (
                 <button key={t.id} onClick={()=>setView(t.id)} style={{
                   background: isActive ? `rgba(139,92,246,0.15)` : "transparent",
-                  border: `1px solid ${isActive?T.accent:T.border}`,
-                  color: isActive ? T.text : T.text2,
+                  border: `1px solid ${isActive ? T.accent : isUsers ? "rgba(16,185,129,0.35)" : T.border}`,
+                  color: isActive ? T.text : isUsers ? "#6ee7b7" : T.text2,
                   borderRadius: 10,
                   padding: "8px 16px",
                   fontSize: 11,
@@ -1172,47 +1347,34 @@ export default function App() {
                   gap: 6,
                   transition: "all 0.15s",
                 }}>
-                  <span style={{color:isActive?T.accent:T.muted,fontSize:13}}>{t.icon}</span>
+                  <span style={{color:isActive?T.accent:isUsers?T.green:T.muted,fontSize:13}}>{t.icon}</span>
                   {t.label.toUpperCase()}
                 </button>
               );
             })}
 
             <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:8}}>
-              {filters.cgm && (
+              {filters.cgm && !isUsuariosTab && (
                 <>
                   <span style={{fontSize:10,color:T.muted,fontWeight:600}}>ZONA:</span>
                   <span style={{fontSize:11,color:T.accent,fontWeight:700,background:"rgba(139,92,246,0.15)",padding:"3px 12px",borderRadius:20,border:`1px solid rgba(139,92,246,0.3)`}}>{filters.cgm}</span>
                   <button onClick={()=>setFilters(f=>({...f,cgm:""}))} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:14,lineHeight:1,padding:"2px 4px"}}>✕</button>
                 </>
               )}
-              <button
-                className="no-print"
-                onClick={()=>window.print()}
-                style={{
-                  background:`rgba(139,92,246,0.15)`,
-                  border:`1px solid ${T.accent}`,
-                  color:T.accent,
-                  borderRadius:10,
-                  padding:"8px 16px",
-                  fontSize:11,
-                  fontFamily:"'Inter',sans-serif",
-                  fontWeight:700,
-                  cursor:"pointer",
-                  display:"flex",
-                  alignItems:"center",
-                  gap:6,
-                  letterSpacing:"0.05em",
-                  transition:"all 0.15s",
-                }}
-              >
-                ⬇ EXPORTAR PDF
-              </button>
+              {!isUsuariosTab && (
+                <button
+                  className="no-print"
+                  onClick={()=>window.print()}
+                  style={{background:`rgba(139,92,246,0.15)`,border:`1px solid ${T.accent}`,color:T.accent,borderRadius:10,padding:"8px 16px",fontSize:11,fontFamily:"'Inter',sans-serif",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6,letterSpacing:"0.05em",transition:"all 0.15s"}}
+                >
+                  ⬇ EXPORTAR PDF
+                </button>
+              )}
             </div>
           </div>
 
           {/* ── CONTENIDO ── */}
-          {loading?(
+          {loading && !isUsuariosTab ? (
             <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:300,gap:16}}>
               <div style={{width:44,height:44,borderRadius:12,background:`linear-gradient(135deg,${T.accent},${T.accent2})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,opacity:0.6}}>⚡</div>
               <div style={{fontSize:12,color:T.muted,fontWeight:500}}>Cargando {loadProgress.toLocaleString()} registros…</div>
@@ -1220,11 +1382,12 @@ export default function App() {
                 <div style={{height:"100%",width:"60%",background:`linear-gradient(90deg,${T.accent},${T.green})`,borderRadius:2}}/>
               </div>
             </div>
-          ):(
+          ) : (
             <>
               {view==="ejecutivo" && <ViewEjecutivo data={filteredData} prevData={prevData}/>}
               {view==="temporal"  && <ViewTemporal data={filteredData}/>}
               {view==="cgm"       && <ViewCGM data={filteredData}/>}
+              {view==="usuarios"  && <ViewUsuarios />}
               {view==="mapa"      && (leafletReady
                 ? <ViewMapa data={dataForMap} filters={filters} setFilters={setFilters}/>
                 : <div style={{color:T.muted,fontSize:12,padding:20}}>Cargando mapa…</div>
@@ -1232,7 +1395,7 @@ export default function App() {
             </>
           )}
 
-          {/* ── ENCABEZADO SOLO VISIBLE AL IMPRIMIR ── */}
+          {/* ── ENCABEZADO SOLO PARA IMPRIMIR ── */}
           <div className="print-header" style={{marginBottom:16,paddingBottom:10,borderBottom:"2px solid #8b5cf6"}}>
             <div style={{fontSize:18,fontWeight:800,color:"#111"}}>Centro de Gestión Municipal · Lomas de Zamora</div>
             <div style={{fontSize:11,color:"#555",marginTop:4}}>
