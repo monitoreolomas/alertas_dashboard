@@ -64,6 +64,13 @@ function buildUrl(page, fechaDesde = null) {
 }
 
 // ─── Normalizar un usuario de Novit al esquema de Supabase ───────────────────
+function limpiarTexto(str) {
+  if (!str || typeof str !== "string") return null;
+  return str
+    .replace(/[\u0000-\u001F\u007F-\u009F]/g, "") // caracteres de control
+    .replace(/\\u[0-9a-fA-F]{0,3}(?![0-9a-fA-F])/g, "") // unicode incompleto
+    .trim() || null;
+}
 function normalizar(u) {
   let categoriaNombre = "Sin categoría";
   if (u?.categoria?.categoria?.nombre) {
@@ -80,16 +87,16 @@ function normalizar(u) {
 
   return {
     id:                   u._id,
-    usuario:              u.usuario || null,
-    nombre:               u?.datosPersonales?.nombre   || null,
-    apellido:             u?.datosPersonales?.apellido || null,
+  usuario:              limpiarTexto(u.usuario),
+  nombre:               limpiarTexto(u?.datosPersonales?.nombre),
+  apellido:             limpiarTexto(u?.datosPersonales?.apellido),
     sexo:                 u?.datosPersonales?.sexo ?? null,   // true/false/null
     fecha_nacimiento:     fechaNac,
     dni_escaneado:        u?.dniEscaneado === true || u?.dniEscaneado === "true",
-    categoria_nombre:     categoriaNombre,
-    localidad:            u?.direccion?.localidad?.nombre || u?.localidad || null,
-    barrio:               u?.direccion?.barrio?.nombre   || null,
-    app_type:             u?.appType || null,
+  categoria_nombre:     limpiarTexto(categoriaNombre),
+  localidad:            limpiarTexto(u?.direccion?.localidad?.nombre || u?.localidad),
+  barrio:               limpiarTexto(u?.direccion?.barrio?.nombre),
+  app_type:             limpiarTexto(u?.appType),
     activo:               u?.activo === true || u?.activo === "true",
     fecha_creacion:       fechaCreacion,
     fecha_actualizacion:  fechaActualizacion,
