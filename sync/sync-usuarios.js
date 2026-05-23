@@ -72,6 +72,14 @@ function limpiarTexto(str) {
     .replace(/\\u[0-9a-fA-F]{0,3}\b/g, "")         // secuencias unicode incompletas
     .trim() || null;
 }
+function sanitizarFila(obj) {
+  return Object.fromEntries(
+    Object.entries(obj).map(([k, v]) => [
+      k,
+      typeof v === "string" ? v.replace(/\u0000/g, "").trim() : v
+    ])
+  );
+}
 function normalizar(u) {
   let categoriaNombre = "Sin categoría";
   if (u?.categoria?.categoria?.nombre) {
