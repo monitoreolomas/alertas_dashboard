@@ -32,6 +32,18 @@ function parseFecha(fechaStr) {
 
   return fecha;
 }
+
+function parseFiltroDate(fechaStr) {
+  if (!fechaStr) return null;
+
+  if (fechaStr.includes("/")) {
+    const [d, m, y] = fechaStr.split("/").map(Number);
+    return new Date(y, m - 1, d);
+  }
+
+  return new Date(fechaStr);
+}
+
 function isFinde(f) {
   if (!f) return false;
   const dt = parseFecha(f);
@@ -716,25 +728,31 @@ function ViewUsuarios() {
 
   // FIX 2 cont: now usuariosNormalizados is stable, this useMemo works correctly
   const usuariosFiltrados = useMemo(() => {
-    return usuariosNormalizados.filter(u => {
+    return usuariosNormalizados.filter((u) => {
       const fecha = new Date(u.fechaCreacion);
 
       if (isNaN(fecha.getTime())) return false;
 
       if (userFilters.fechaDesde) {
-        const desde = new Date(userFilters.fechaDesde);
+        const desde = parseFiltroDate(userFilters.fechaDesde);
 
         if (fecha < desde) return false;
       }
 
       if (userFilters.fechaHasta) {
-        const hasta = new Date(userFilters.fechaHasta);
+        const hasta = parseFiltroDate(userFilters.fechaHasta);
+
         hasta.setHours(23, 59, 59, 999);
 
         if (fecha > hasta) return false;
       }
 
-      if (userFilters.cgm && u.localidadNombre !== userFilters.cgm) return false;
+      if (
+        userFilters.cgm &&
+        u.localidadNombre !== userFilters.cgm
+      ) {
+        return false;
+      }
 
       return true;
     });
