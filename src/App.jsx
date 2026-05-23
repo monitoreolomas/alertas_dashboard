@@ -312,59 +312,42 @@ function esFinde(fechaStr) {
   return dow === 0 || dow === 6;
 }
 
-// Dado un rango de fechas (desde/hasta YYYY-MM-DD), devuelve los turnos agrupados
-// con sus rangos UTC correctos, cruzando medianoche cuando corresponde.
-// Agrupa todos los días del período sumando por nombre de turno.
+// Dado un rango de fechas devuelve los turnos con sus bloques horarios UTC correctos.
+// Separa semana de finde porque tienen horarios distintos.
 function getTurnosRango(fechaDesde, fechaHasta) {
-  // Iteramos cada día del rango
-  const turnos = { Mañana: null, Tarde: null, Noche: null };
+  // Acumulamos por clave única "Nombre|rango" para no mezclar
+  const map = {}; // key → { nombre, rangoLabel, bloques[] }
+
+  const addBloque = (key, nombre, rangoLabel, desde, hasta) => {
+    if (!map[key]) map[key] = { nombre, rangoLabel, bloques: [] };
+    map[key].bloques.push({ desde, hasta });
+  };
 
   let cursor = fechaDesde;
   while (cursor <= fechaHasta) {
     const fin = esFinde(cursor);
+    const sig = nextDay(cursor);
 
     if (fin) {
-      // Finde: Mañana 06-18 local, Noche 18-06 local del día siguiente
-      if (!turnos.Mañana) turnos.Mañana = [];
-      turnos.Mañana.push({
-        desde: localToUTC(cursor, 6),
-        hasta: localToUTC(cursor, 18),
-        fecha: cursor,
-      });
-      if (!turnos.Noche) turnos.Noche = [];
-      turnos.Noche.push({
-        desde: localToUTC(cursor, 18),
-        hasta: localToUTC(nextDay(cursor), 6),
-        fecha: cursor,
-      });
+      addBloque("Mañana|06-18", "Mañana", "06:00–18:00",
+        localToUTC(cursor, 6), localToUTC(cursor, 18));
+      addBloque("Noche|18-06", "Noche", "18:00–06:00",
+        localToUTC(cursor, 18), localToUTC(sig, 6));
     } else {
-      // Semana: Mañana 06-14, Tarde 14-22, Noche 22-06 del día siguiente
-      if (!turnos.Mañana) turnos.Mañana = [];
-      turnos.Mañana.push({
-        desde: localToUTC(cursor, 6),
-        hasta: localToUTC(cursor, 14),
-        fecha: cursor,
-      });
-      if (!turnos.Tarde) turnos.Tarde = [];
-      turnos.Tarde.push({
-        desde: localToUTC(cursor, 14),
-        hasta: localToUTC(cursor, 22),
-        fecha: cursor,
-      });
-      if (!turnos.Noche) turnos.Noche = [];
-      turnos.Noche.push({
-        desde: localToUTC(cursor, 22),
-        hasta: localToUTC(nextDay(cursor), 6),
-        fecha: cursor,
-      });
+      addBloque("Mañana|06-14", "Mañana", "06:00–14:00",
+        localToUTC(cursor, 6), localToUTC(cursor, 14));
+      addBloque("Tarde|14-22", "Tarde", "14:00–22:00",
+        localToUTC(cursor, 14), localToUTC(cursor, 22));
+      addBloque("Noche|22-06", "Noche", "22:00–06:00",
+        localToUTC(cursor, 22), localToUTC(sig, 6));
     }
 
-    cursor = nextDay(cursor);
+    cursor = sig;
   }
 
-  return Object.entries(turnos)
-    .filter(([, v]) => v !== null)
-    .map(([nombre, bloques]) => ({ nombre, bloques }));
+  // Orden: Mañana → Tarde → Noche
+  const orden = ["Mañana|06-18","Mañana|06-14","Tarde|14-22","Noche|18-06","Noche|22-06"];
+  return orden.filter(k => map[k]).map(k => map[k]);
 }
 
 // Para el turno Noche necesitamos también incluir el tramo 00:00-06:00
@@ -460,7 +443,7 @@ function AlertaDiscrepancia({ allData, filters }) {
           const discrepancia = enNovit !== null && enSupabase < enNovit;
           const faltantes = enNovit !== null ? enNovit - enSupabase : null;
 
-          return { nombre: turno.nombre, enSupabase, enNovit, discrepancia, faltantes, errorNovit };
+          return { nombre: turno.nombre, rangoLabel: turno.rangoLabel, enSupabase, enNovit, discrepancia, faltantes, errorNovit };
         }));
 
         setResultados(checks);
@@ -534,7 +517,7 @@ function AlertaDiscrepancia({ allData, filters }) {
             const color = r.errorNovit ? T.amber : ok ? T.green : T.red;
             const bg    = r.errorNovit ? "rgba(245,158,11,0.08)" : ok ? "rgba(16,185,129,0.07)" : "rgba(239,68,68,0.08)";
             const emojiTurno = r.nombre==="Mañana"?"🌅":r.nombre==="Tarde"?"🌇":"🌙";
-            const rangoLabel = r.nombre==="Mañana"?"06:00–14:00":r.nombre==="Tarde"?"14:00–22:00":"22:00–06:00";
+            const rangoLabel = r.rangoLabel;
             return (
               <div key={r.nombre} style={{background:bg,border:`1px solid ${color}33`,borderRadius:10,padding:"10px 14px"}}>
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
