@@ -30,10 +30,8 @@ function topN(obj,n=10) { return Object.entries(obj).sort((a,b)=>b[1]-a[1]).slic
 function getTurno(h, finde) {
   if (h === null) return "Sin dato";
   if (finde) {
-    // Finde: turnos de 12hs — Mañana 06-18, Noche 18-06
     return (h >= 6 && h < 18) ? "Mañana" : "Noche";
   }
-  // Semana: turnos de 8hs — Mañana 06-14, Tarde 14-22, Noche 22-06
   if (h >= 6 && h < 14) return "Mañana";
   if (h >= 14 && h < 22) return "Tarde";
   return "Noche";
@@ -177,7 +175,6 @@ function FiltersPanel({ filters, setFilters, options, open, setOpen }) {
     outline:"none",
     width:"100%",
   };
-  // color-scheme:dark hace que el ícono del calendario se vea en fondos oscuros
   const dateInp = { ...baseInp, colorScheme:"dark" };
   const lbl = {fontSize:11,color:T.text2,fontWeight:600,letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:5,fontFamily:"'Inter',sans-serif",display:"block"};
 
@@ -201,7 +198,6 @@ function FiltersPanel({ filters, setFilters, options, open, setOpen }) {
         <div style={{padding:"0 18px 16px",borderTop:`1px solid rgba(139,92,246,0.1)`}}>
           <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:14,paddingTop:14,alignItems:"end"}}>
 
-            {/* Desde */}
             <div>
               <label style={lbl}>Desde</label>
               <input
@@ -212,7 +208,6 @@ function FiltersPanel({ filters, setFilters, options, open, setOpen }) {
               />
             </div>
 
-            {/* Hasta */}
             <div>
               <label style={lbl}>Hasta</label>
               <input
@@ -223,7 +218,6 @@ function FiltersPanel({ filters, setFilters, options, open, setOpen }) {
               />
             </div>
 
-            {/* Turno */}
             <div>
               <label style={lbl}>
                 Turno
@@ -239,7 +233,6 @@ function FiltersPanel({ filters, setFilters, options, open, setOpen }) {
               </select>
             </div>
 
-            {/* Categoría */}
             <div>
               <label style={lbl}>Categoría</label>
               <select value={filters.categoria} onChange={e=>setFilters(f=>({...f,categoria:e.target.value}))} style={baseInp}>
@@ -248,7 +241,6 @@ function FiltersPanel({ filters, setFilters, options, open, setOpen }) {
               </select>
             </div>
 
-            {/* Tipo */}
             <div>
               <label style={lbl}>Tipo</label>
               <select value={filters.tipo} onChange={e=>setFilters(f=>({...f,tipo:e.target.value}))} style={baseInp}>
@@ -257,7 +249,6 @@ function FiltersPanel({ filters, setFilters, options, open, setOpen }) {
               </select>
             </div>
 
-            {/* Reset — alignItems:"end" en el grid lo alinea al fondo igual que los inputs */}
             <button
               onClick={()=>setFilters({fechaDesde:firstOfMonthStr(),fechaHasta:todayStr(),cgm:"",categoria:"",tipo:"",turno:""})}
               style={{background:"rgba(139,92,246,0.12)",border:`1px solid ${T.border}`,color:T.text2,borderRadius:10,padding:"7px 14px",fontSize:11,fontFamily:"'Inter',sans-serif",cursor:"pointer",fontWeight:600,width:"100%",height:34}}
@@ -273,144 +264,180 @@ function FiltersPanel({ filters, setFilters, options, open, setOpen }) {
 }
 
 // ─── ALERTA DISCREPANCIA ─────────────────────────────────────────────────────
+
 const API_NOVIT = "https://apis2.novit.gpesistemas.ar/monitoreo/alertas";
 
-// Argentina es UTC-3. Convierte una fecha local YYYY-MM-DD + hora local HH a ISO UTC.
-function localToUTC(fechaStr, horaLocal) {
-  // horaLocal en horas (ej: 6, 14, 22)
-  // Argentina UTC-3: hora UTC = hora local + 3
-  const horaUTC = horaLocal + 3;
-  if (horaUTC < 24) {
-    return `${fechaStr}T${String(horaUTC).padStart(2,"0")}:00:00.000Z`;
-  } else {
-    // cruza medianoche UTC → siguiente día
-    const d = new Date(fechaStr + "T00:00:00Z");
-    d.setUTCDate(d.getUTCDate() + 1);
-    const nextDay = d.toISOString().slice(0,10);
-    return `${nextDay}T${String(horaUTC-24).padStart(2,"0")}:00:00.000Z`;
-  }
+// ── helpers de fecha ─────────────────────────────────────────────────────────
+// Parsing SIEMPRE en local (new Date(y,m-1,d)) para evitar el desfase UTC.
+
+function disc_getDow(fechaStr) {
+  const [y, m, d] = fechaStr.split("-").map(Number);
+  return new Date(y, m - 1, d).getDay(); // 0 = Dom, 6 = Sáb
 }
 
-// Resta un día a una fecha YYYY-MM-DD
-function prevDay(fechaStr) {
-  const [y, m, d] = fechaStr.split("-").map(Number);
-  const dt = new Date(y, m - 1, d - 1);
-  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
-}
-
-// Suma un día
-function nextDay(fechaStr) {
-  const [y, m, d] = fechaStr.split("-").map(Number);
-  const dt = new Date(y, m - 1, d + 1);
-  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
-}
-
-function esFinde(fechaStr) {
-  // Parseamos año/mes/día directamente para evitar desfase UTC
-  const [y, m, d] = fechaStr.split("-").map(Number);
-  const dow = new Date(y, m - 1, d).getDay(); // getDay() local
+function disc_esFinde(fechaStr) {
+  const dow = disc_getDow(fechaStr);
   return dow === 0 || dow === 6;
 }
 
-// Dado un rango de fechas devuelve los turnos con sus bloques horarios UTC correctos.
-// Separa semana de finde porque tienen horarios distintos.
-function getTurnosRango(fechaDesde, fechaHasta) {
-  // Acumulamos por clave única "Nombre|rango" para no mezclar
-  const map = {}; // key → { nombre, rangoLabel, bloques[] }
+function disc_prevDay(fechaStr) {
+  const [y, m, d] = fechaStr.split("-").map(Number);
+  const dt = new Date(y, m - 1, d - 1);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+}
 
-  const addBloque = (key, nombre, rangoLabel, desde, hasta) => {
-    if (!map[key]) map[key] = { nombre, rangoLabel, bloques: [] };
-    map[key].bloques.push({ desde, hasta });
-  };
+function disc_nextDay(fechaStr) {
+  const [y, m, d] = fechaStr.split("-").map(Number);
+  const dt = new Date(y, m - 1, d + 1);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+}
 
-  let cursor = fechaDesde;
-  while (cursor <= fechaHasta) {
-    const fin = esFinde(cursor);
-    const sig = nextDay(cursor);
+/**
+ * Convierte una fecha local Argentina (YYYY-MM-DD) + hora local (0–23)
+ * a un ISO UTC string.
+ * Argentina = UTC−3  →  hora_UTC = hora_local + 3
+ */
+function disc_toUTC(fechaStr, horaLocal) {
+  const horaUTC = horaLocal + 3;
+  if (horaUTC < 24) {
+    return `${fechaStr}T${String(horaUTC).padStart(2, "0")}:00:00.000Z`;
+  }
+  // cruza medianoche UTC → siguiente día
+  return `${disc_nextDay(fechaStr)}T${String(horaUTC - 24).padStart(2, "0")}:00:00.000Z`;
+}
 
-    if (fin) {
-      addBloque("Mañana|06-18", "Mañana", "06:00–18:00",
-        localToUTC(cursor, 6), localToUTC(cursor, 18));
-      addBloque("Noche|18-06", "Noche", "18:00–06:00",
-        localToUTC(cursor, 18), localToUTC(sig, 6));
+// ── definición de los 5 tipos de turno ───────────────────────────────────────
+//
+//  DÍAS HÁBILES (Lun–Vie)
+//    TM-Hab   06:00–14:00
+//    TT-Hab   14:00–22:00
+//    TN-Hab   22:00–06:00 (madrugada del día siguiente)
+//
+//  FIN DE SEMANA (Sáb–Dom)
+//    TM-Fin   06:00–18:00
+//    TN-Fin   18:00–06:00 (madrugada del día siguiente)
+
+const DISC_SHIFTS = [
+  { id: "TM-Hab", label: "Mañana Hábil", emoji: "🌅", rango: "06:00–14:00" },
+  { id: "TT-Hab", label: "Tarde Hábil",  emoji: "🌇", rango: "14:00–22:00" },
+  { id: "TN-Hab", label: "Noche Hábil",  emoji: "🌙", rango: "22:00–06:00" },
+  { id: "TM-Fin", label: "Mañana Finde", emoji: "🌅", rango: "06:00–18:00" },
+  { id: "TN-Fin", label: "Noche Finde",  emoji: "🌙", rango: "18:00–06:00" },
+];
+
+// Mapa del filtro de turno del panel → IDs de turno
+const DISC_TURNO_MAP = {
+  "Mañana": ["TM-Hab", "TM-Fin"],
+  "Tarde":  ["TT-Hab"],
+  "Noche":  ["TN-Hab", "TN-Fin"],
+};
+
+// ── Supabase: clasificar registro → turno ─────────────────────────────────────
+/**
+ * Determina a qué turno pertenece un registro de Supabase.
+ * IMPORTANTE: usa `fecha` y `horario` (hora local AR), nunca created_at.
+ *
+ * Regla especial para la MADRUGADA (00:00–05:59):
+ *   Esas horas pertenecen a la NOCHE del día ANTERIOR.
+ *   Ejemplo: registro con fecha=Martes horario=03:00 → TN del Lunes.
+ */
+function disc_shiftDeRegistro(r, desde, hasta) {
+  if (!r.fecha || !r.horario) return null;
+  const h = parseInt(r.horario.split(":")[0], 10);
+  if (isNaN(h)) return null;
+
+  if (h < 6) {
+    // ── Madrugada: el "padre" es el día anterior ──────────────────────────
+    const padre = disc_prevDay(r.fecha);
+    if (padre < desde || padre > hasta) return null; // padre fuera del rango → ignorar
+    return disc_esFinde(padre) ? "TN-Fin" : "TN-Hab";
+  }
+
+  // ── Resto del día (06:00–23:59): usar la fecha del propio registro ────────
+  if (r.fecha < desde || r.fecha > hasta) return null;
+
+  if (disc_esFinde(r.fecha)) {
+    return h < 18 ? "TM-Fin" : "TN-Fin";
+  }
+  // Hábil
+  if (h < 14) return "TM-Hab";
+  if (h < 22) return "TT-Hab";
+  return "TN-Hab"; // h >= 22
+}
+
+/** Cuenta alertas de Supabase por tipo de turno */
+function disc_contarSupa(allData, desde, hasta) {
+  const c = { "TM-Hab": 0, "TT-Hab": 0, "TN-Hab": 0, "TM-Fin": 0, "TN-Fin": 0 };
+  allData.forEach(r => {
+    const s = disc_shiftDeRegistro(r, desde, hasta);
+    if (s) c[s]++;
+  });
+  return c;
+}
+
+// ── Novit: generar bloques UTC por tipo de turno ──────────────────────────────
+/**
+ * Itera cada día del rango [desde, hasta] y genera los bloques horarios
+ * en UTC para consultar la API de Novit.
+ *
+ * Cada bloque es [inicio_UTC, fin_UTC) correspondiente a un turno en un día.
+ */
+function disc_bloquesNovit(desde, hasta) {
+  const b = { "TM-Hab": [], "TT-Hab": [], "TN-Hab": [], "TM-Fin": [], "TN-Fin": [] };
+  let cur = desde;
+  while (cur <= hasta) {
+    const sig = disc_nextDay(cur);
+    if (disc_esFinde(cur)) {
+      // Fin de semana: TM (06–18) y TN (18–06 del día siguiente)
+      b["TM-Fin"].push([disc_toUTC(cur, 6),  disc_toUTC(cur, 18)]);
+      b["TN-Fin"].push([disc_toUTC(cur, 18), disc_toUTC(sig, 6)]);
     } else {
-      addBloque("Mañana|06-14", "Mañana", "06:00–14:00",
-        localToUTC(cursor, 6), localToUTC(cursor, 14));
-      addBloque("Tarde|14-22", "Tarde", "14:00–22:00",
-        localToUTC(cursor, 14), localToUTC(cursor, 22));
-      addBloque("Noche|22-06", "Noche", "22:00–06:00",
-        localToUTC(cursor, 22), localToUTC(sig, 6));
+      // Hábil: TM (06–14), TT (14–22), TN (22–06 del día siguiente)
+      b["TM-Hab"].push([disc_toUTC(cur, 6),  disc_toUTC(cur, 14)]);
+      b["TT-Hab"].push([disc_toUTC(cur, 14), disc_toUTC(cur, 22)]);
+      b["TN-Hab"].push([disc_toUTC(cur, 22), disc_toUTC(sig, 6)]);
     }
-
-    cursor = sig;
+    cur = sig;
   }
-
-  // Orden: Mañana → Tarde → Noche
-  const orden = ["Mañana|06-18","Mañana|06-14","Tarde|14-22","Noche|18-06","Noche|22-06"];
-  return orden.filter(k => map[k]).map(k => map[k]);
+  return b;
 }
 
-// Para el turno Noche necesitamos también incluir el tramo 00:00-06:00
-// que pertenece al turno Noche del día ANTERIOR.
-// Esta función cuenta en Supabase los registros de un turno dado dentro de un rango de fechas.
-function contarEnSupabase(allData, fechaDesde, fechaHasta, nombreTurno) {
-  // El turno Noche incluye registros de la madrugada (00-06) que tienen
-  // fecha del día siguiente pero pertenecen al turno de la noche anterior.
-  // Por eso expandimos el rango un día en cada extremo para capturarlos.
-  const desdeExt = prevDay(fechaDesde);
-  const hastaExt = nextDay(fechaHasta);
+// ── llamadas a la API de Novit ────────────────────────────────────────────────
 
-  return allData.filter(r => {
-    if (!r.fecha || !r.horario) return false;
-    if (r.fecha < desdeExt || r.fecha > hastaExt) return false;
-    const h = getHour(r.horario);
-    if (h === null) return false;
-    const fin = isFinde(r.fecha);
-    const turnoReal = getTurno(h, fin);
-    if (turnoReal !== nombreTurno) return false;
-
-    // Para Noche: si es 00-06 pertenece a la noche anterior,
-    // verificamos que la noche "padre" caiga en el rango de fechas
-    if (nombreTurno === "Noche" && h < 6) {
-      const fechaPadre = prevDay(r.fecha);
-      return fechaPadre >= fechaDesde && fechaPadre <= fechaHasta;
-    }
-    // Para otros turnos: la fecha del registro debe estar en rango
-    return r.fecha >= fechaDesde && r.fecha <= fechaHasta;
-  }).length;
+/** Una sola llamada: cuenta alertas finalizadas en el rango UTC [desde, hasta) */
+async function disc_fetchNovit(token, desde, hasta) {
+  const filtro = {
+    estadoActual: "Finalizada",
+    fechaCreacion: { $gte: desde, $lt: hasta },
+  };
+  const url = `${API_NOVIT}?limit=1&filter=${encodeURIComponent(JSON.stringify(filtro))}`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return (await res.json()).totalCount ?? 0;
 }
 
-async function fetchNovitTotal(token, bloques) {
-  // Suma los totalCount de cada bloque horario
-  let total = 0;
-  for (const b of bloques) {
-    const filtro = {
-      estadoActual: "Finalizada",
-      fechaCreacion: { $gte: b.desde, $lt: b.hasta },
-    };
-    const url = `${API_NOVIT}?limit=1&filter=${encodeURIComponent(JSON.stringify(filtro))}`;
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    total += data.totalCount ?? 0;
-  }
-  return total;
+/** Suma todos los bloques de un tipo de turno haciendo llamadas en paralelo */
+async function disc_novitPorTurno(token, bloques) {
+  if (!bloques.length) return 0;
+  const counts = await Promise.all(bloques.map(([d, h]) => disc_fetchNovit(token, d, h)));
+  return counts.reduce((a, b) => a + b, 0);
 }
 
+// ── Componente ────────────────────────────────────────────────────────────────
 function AlertaDiscrepancia({ allData, filters }) {
-  const [estado, setEstado] = useState("idle");
+  const [estado,     setEstado]     = useState("idle"); // idle|sin_token|cargando|ok|alerta|error
   const [resultados, setResultados] = useState([]);
   const [ultimaCheck, setUltimaCheck] = useState(null);
-  const [expandido, setExpandido] = useState(true);
+  const [expandido,  setExpandido]  = useState(true);
 
-  // Fechas efectivas: si hay filtro las usamos, si no usamos hoy
-  const fechaDesde = filters.fechaDesde || todayStr();
-  const fechaHasta = filters.fechaHasta || todayStr();
+  const desde = filters.fechaDesde || todayStr();
+  const hasta  = filters.fechaHasta || todayStr();
 
   useEffect(() => {
-    if (allData.length === 0) return;
+    if (!allData.length) return;
+    let cancelado = false;
 
-    async function verificar() {
+    async function run() {
       const token =
         window._novitToken ||
         localStorage.getItem("novit_token") ||
@@ -421,137 +448,236 @@ function AlertaDiscrepancia({ allData, filters }) {
       setEstado("cargando");
       setResultados([]);
 
-      const turnosRango = getTurnosRango(fechaDesde, fechaHasta);
+      // 1. Contar Supabase usando fecha+horario locales
+      const supaCounts = disc_contarSupa(allData, desde, hasta);
 
-      // Filtramos por turno activo en el filtro del dashboard
-      const turnosFiltrados = filters.turno
-        ? turnosRango.filter(t => t.nombre === filters.turno)
-        : turnosRango;
+      // 2. Generar bloques UTC para Novit
+      const bloques = disc_bloquesNovit(desde, hasta);
+
+      // 3. Filtrar turnos según el filtro del panel
+      let shiftsDef = DISC_SHIFTS;
+      if (filters.turno) {
+        const ids = DISC_TURNO_MAP[filters.turno] || [];
+        shiftsDef = shiftsDef.filter(s => ids.includes(s.id));
+      }
+      // Solo mostrar turnos que tienen días en el rango
+      shiftsDef = shiftsDef.filter(s => bloques[s.id].length > 0 || supaCounts[s.id] > 0);
 
       try {
-        const checks = await Promise.all(turnosFiltrados.map(async (turno) => {
-          const enSupabase = contarEnSupabase(allData, fechaDesde, fechaHasta, turno.nombre);
+        // 4. Consultar Novit para todos los turnos en paralelo
+        const checks = await Promise.all(shiftsDef.map(async (s) => {
+          const supaTotal  = supaCounts[s.id];
+          const blsDelTurno = bloques[s.id];
 
-          let enNovit = null;
-          let errorNovit = null;
+          let novit    = null;
+          let errorMsg = null;
           try {
-            enNovit = await fetchNovitTotal(token, turno.bloques);
-          } catch(e) {
-            errorNovit = e.message;
+            novit = await disc_novitPorTurno(token, blsDelTurno);
+          } catch (e) {
+            errorMsg = e.message;
           }
 
-          const discrepancia = enNovit !== null && enSupabase < enNovit;
-          const faltantes = enNovit !== null ? enNovit - enSupabase : null;
+          const faltantes    = novit !== null ? novit - supaTotal : null;
+          const discrepancia = faltantes !== null && faltantes > 0;
 
-          return { nombre: turno.nombre, rangoLabel: turno.rangoLabel, enSupabase, enNovit, discrepancia, faltantes, errorNovit };
+          return {
+            ...s,
+            supabase:    supaTotal,
+            novit,
+            faltantes,
+            discrepancia,
+            error: errorMsg,
+            dias:  blsDelTurno.length,
+          };
         }));
 
+        if (cancelado) return;
         setResultados(checks);
         setUltimaCheck(new Date().toLocaleTimeString("es-AR"));
         setEstado(checks.some(c => c.discrepancia) ? "alerta" : "ok");
-      } catch(e) {
-        setEstado("error");
+      } catch (e) {
+        if (!cancelado) setEstado("error");
       }
     }
 
-    verificar();
-  }, [allData, fechaDesde, fechaHasta, filters.turno]);
+    run();
+    return () => { cancelado = true; };
+  }, [allData, desde, hasta, filters.turno]);
 
+  // ── Render: sin token ──────────────────────────────────────────────────────
   if (estado === "idle") return null;
 
   if (estado === "sin_token") return (
-    <div style={{background:"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.35)",borderRadius:12,padding:"12px 18px",marginBottom:16,display:"flex",alignItems:"flex-start",gap:12}}>
-      <span style={{fontSize:20,flexShrink:0}}>🔑</span>
+    <div style={{
+      background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.35)",
+      borderRadius: 12, padding: "12px 18px", marginBottom: 16,
+      display: "flex", alignItems: "flex-start", gap: 12,
+    }}>
+      <span style={{ fontSize: 20, flexShrink: 0 }}>🔑</span>
       <div>
-        <div style={{fontSize:12,fontWeight:700,color:T.amber,marginBottom:4}}>Token de Novit no configurado</div>
-        <div style={{fontSize:11,color:T.text2,lineHeight:1.6}}>
-          Abrí la consola del browser y ejecutá en el dashboard:
+        <div style={{ fontSize: 12, fontWeight: 700, color: T.amber, marginBottom: 4, fontFamily: "'Inter',sans-serif" }}>
+          Token de Novit no configurado
         </div>
-        <code style={{display:"block",marginTop:6,background:"rgba(0,0,0,0.3)",padding:"6px 10px",borderRadius:6,fontSize:10,color:"#a5f3fc",lineHeight:1.8}}>
+        <div style={{ fontSize: 11, color: T.text2, lineHeight: 1.6, fontFamily: "'Inter',sans-serif" }}>
+          Abrí la consola del browser y ejecutá:
+        </div>
+        <code style={{
+          display: "block", marginTop: 6, background: "rgba(0,0,0,0.3)",
+          padding: "6px 10px", borderRadius: 6, fontSize: 10, color: "#a5f3fc",
+          lineHeight: 1.8, fontFamily: "monospace",
+        }}>
           localStorage.setItem('novit_token', 'TU_TOKEN_AQUÍ')
         </code>
-        <div style={{fontSize:10,color:T.muted,marginTop:4}}>Después recargá la página.</div>
+        <div style={{ fontSize: 10, color: T.muted, marginTop: 4, fontFamily: "'Inter',sans-serif" }}>
+          Después recargá la página.
+        </div>
       </div>
     </div>
   );
 
-  const hayAlerta = estado === "alerta";
+  // ── Variables de estilo según estado ──────────────────────────────────────
   const cargando  = estado === "cargando";
-  const borderColor = cargando ? T.border : hayAlerta ? "rgba(239,68,68,0.4)" : "rgba(16,185,129,0.35)";
-  const bgColor     = cargando ? "rgba(139,92,246,0.05)" : hayAlerta ? "rgba(239,68,68,0.06)" : "rgba(16,185,129,0.05)";
-  const iconoPrin   = cargando ? "⏳" : hayAlerta ? "🚨" : "✅";
-  const periodo     = fechaDesde === fechaHasta ? fechaDesde : `${fechaDesde} → ${fechaHasta}`;
-  const tituloPrin  = cargando
+  const hayAlerta = estado === "alerta";
+  const borderC   = cargando ? T.border : hayAlerta ? "rgba(239,68,68,0.4)"   : "rgba(16,185,129,0.35)";
+  const bgC       = cargando ? "rgba(139,92,246,0.05)" : hayAlerta ? "rgba(239,68,68,0.06)"   : "rgba(16,185,129,0.05)";
+  const icono     = cargando ? "⏳" : hayAlerta ? "🚨" : "✅";
+  const periodo   = desde === hasta ? desde : `${desde} → ${hasta}`;
+
+  const totalNovit = resultados.reduce((a, r) => a + (r.novit ?? 0), 0);
+  const totalSupa  = resultados.reduce((a, r) => a + r.supabase, 0);
+  const totalFalt  = resultados.filter(r => !r.error).reduce((a, r) => a + Math.max(r.faltantes ?? 0, 0), 0);
+
+  const tituloMensaje = cargando
     ? "Verificando discrepancias con Novit…"
     : hayAlerta
-    ? `Discrepancia detectada — ${resultados.filter(r=>r.discrepancia).length} turno(s) con alertas faltantes en Supabase`
+    ? `Discrepancia detectada — ${resultados.filter(r => r.discrepancia).length} turno(s) con alertas sin cargar en Supabase`
     : "Sin discrepancias — Supabase coincide con Novit en todos los turnos";
 
   return (
-    <div style={{background:bgColor,border:`1px solid ${borderColor}`,borderRadius:12,marginBottom:16,overflow:"hidden"}}>
+    <div style={{ background: bgC, border: `1px solid ${borderC}`, borderRadius: 12, marginBottom: 16, overflow: "hidden" }}>
+
+      {/* ── Cabecera clicable ── */}
       <div
         onClick={() => !cargando && setExpandido(e => !e)}
-        style={{padding:"12px 18px",display:"flex",alignItems:"center",gap:10,cursor:cargando?"default":"pointer"}}
+        style={{ padding: "12px 18px", display: "flex", alignItems: "center", gap: 10, cursor: cargando ? "default" : "pointer" }}
       >
-        <span style={{fontSize:18,flexShrink:0}}>{iconoPrin}</span>
-        <div style={{flex:1}}>
-          <div style={{fontSize:12,fontWeight:700,fontFamily:"'Inter',sans-serif",color:cargando?T.text2:hayAlerta?"#fca5a5":"#6ee7b7"}}>
-            {tituloPrin}
+        <span style={{ fontSize: 18, flexShrink: 0 }}>{icono}</span>
+        <div style={{ flex: 1 }}>
+          <div style={{
+            fontSize: 12, fontWeight: 700, fontFamily: "'Inter',sans-serif",
+            color: cargando ? T.text2 : hayAlerta ? "#fca5a5" : "#6ee7b7",
+          }}>
+            {tituloMensaje}
           </div>
           {ultimaCheck && (
-            <div style={{fontSize:10,color:T.muted,marginTop:2,fontFamily:"'Inter',sans-serif"}}>
-              Verificado: {ultimaCheck} · Período: {periodo}
-              {filters.turno ? ` · Turno: ${filters.turno}` : ""}
+            <div style={{
+              fontSize: 10, color: T.muted, marginTop: 3,
+              fontFamily: "'Inter',sans-serif", display: "flex", gap: 14, flexWrap: "wrap",
+            }}>
+              <span>🕐 {ultimaCheck}</span>
+              <span>📅 {periodo}</span>
+              {filters.turno && <span>🔄 Turno: {filters.turno}</span>}
+              {!cargando && resultados.length > 0 && (
+                <span>
+                  Novit: <b style={{ color: T.text }}>{totalNovit.toLocaleString()}</b>
+                  {" "}·{" "}
+                  Supa: <b style={{ color: T.text }}>{totalSupa.toLocaleString()}</b>
+                  {totalFalt > 0 && (
+                    <b style={{ color: T.red }}>{" "}· ⚠ Faltantes: {totalFalt.toLocaleString()}</b>
+                  )}
+                </span>
+              )}
             </div>
           )}
         </div>
-        {!cargando && (
-          <span style={{fontSize:11,color:T.muted,transform:expandido?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.2s"}}>▼</span>
+        {!cargando && resultados.length > 0 && (
+          <span style={{
+            fontSize: 11, color: T.muted, flexShrink: 0,
+            transform: expandido ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s",
+          }}>▼</span>
         )}
       </div>
 
+      {/* ── Grilla de tarjetas por turno ── */}
       {!cargando && expandido && resultados.length > 0 && (
-        <div style={{borderTop:`1px solid ${borderColor}`,padding:"12px 18px",display:"grid",gridTemplateColumns:`repeat(${resultados.length},1fr)`,gap:10}}>
+        <div style={{
+          borderTop: `1px solid ${borderC}`,
+          padding: "12px 18px",
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(195px, 1fr))",
+          gap: 10,
+        }}>
           {resultados.map(r => {
-            const ok = !r.discrepancia && !r.errorNovit;
-            const color = r.errorNovit ? T.amber : ok ? T.green : T.red;
-            const bg    = r.errorNovit ? "rgba(245,158,11,0.08)" : ok ? "rgba(16,185,129,0.07)" : "rgba(239,68,68,0.08)";
-            const emojiTurno = r.nombre==="Mañana"?"🌅":r.nombre==="Tarde"?"🌇":"🌙";
-            const rangoLabel = r.rangoLabel;
+            const ok    = !r.discrepancia && !r.error;
+            const color = r.error ? T.amber : ok ? T.green : T.red;
+            const bg    = r.error ? "rgba(245,158,11,0.07)" : ok ? "rgba(16,185,129,0.07)" : "rgba(239,68,68,0.07)";
+
             return (
-              <div key={r.nombre} style={{background:bg,border:`1px solid ${color}33`,borderRadius:10,padding:"10px 14px"}}>
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
-                  <span style={{fontSize:12,fontWeight:700,color,fontFamily:"'Inter',sans-serif"}}>
-                    {emojiTurno} {r.nombre}
+              <div key={r.id} style={{ background: bg, border: `1px solid ${color}33`, borderRadius: 10, padding: "10px 14px" }}>
+
+                {/* Título + badge */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color, fontFamily: "'Inter',sans-serif" }}>
+                    {r.emoji} {r.label}
                   </span>
-                  <div style={{display:"flex",alignItems:"center",gap:6}}>
-                    <span style={{fontSize:9,color:T.muted,fontFamily:"'Inter',sans-serif"}}>{rangoLabel}</span>
-                    {r.errorNovit
-                      ? <span style={{fontSize:9,color:T.amber,background:"rgba(245,158,11,0.15)",padding:"2px 7px",borderRadius:10,fontWeight:600}}>ERROR</span>
-                      : ok
-                      ? <span style={{fontSize:9,color:T.green,background:"rgba(16,185,129,0.12)",padding:"2px 7px",borderRadius:10,fontWeight:600}}>OK</span>
-                      : <span style={{fontSize:9,color:T.red,background:"rgba(239,68,68,0.15)",padding:"2px 7px",borderRadius:10,fontWeight:600}}>FALTANTES</span>
-                    }
-                  </div>
+                  <span style={{
+                    fontSize: 9, padding: "2px 7px", borderRadius: 10, fontWeight: 600,
+                    fontFamily: "'Inter',sans-serif",
+                    background: r.error ? "rgba(245,158,11,0.15)" : ok ? "rgba(16,185,129,0.12)" : "rgba(239,68,68,0.15)",
+                    color: r.error ? T.amber : ok ? T.green : T.red,
+                  }}>
+                    {r.error ? "ERROR" : ok ? "OK" : "FALTANTES"}
+                  </span>
                 </div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:r.discrepancia||r.errorNovit?8:0}}>
+
+                {/* Meta: rango horario + cantidad de días */}
+                <div style={{ display: "flex", gap: 5, marginBottom: 8, flexWrap: "wrap" }}>
+                  <span style={{
+                    fontSize: 9, color: T.muted, fontFamily: "'Inter',sans-serif",
+                    background: "rgba(255,255,255,0.04)", padding: "2px 7px", borderRadius: 5,
+                  }}>{r.rango}</span>
+                  <span style={{
+                    fontSize: 9, color: T.muted, fontFamily: "'Inter',sans-serif",
+                    background: "rgba(255,255,255,0.04)", padding: "2px 7px", borderRadius: 5,
+                  }}>{r.dias} {r.dias === 1 ? "día" : "días"}</span>
+                </div>
+
+                {/* Cifras Novit vs Supabase */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
                   {[
-                    ["Novit (esperado)", r.enNovit!==null?r.enNovit.toLocaleString():"—", T.text],
-                    ["Supabase (cargado)", r.enSupabase.toLocaleString(), r.discrepancia?T.red:T.text],
-                  ].map(([lbl,val,col])=>(
-                    <div key={lbl} style={{background:"rgba(0,0,0,0.2)",borderRadius:7,padding:"6px 10px"}}>
-                      <div style={{fontSize:9,color:T.muted,fontFamily:"'Inter',sans-serif",marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em"}}>{lbl}</div>
-                      <div style={{fontSize:18,fontWeight:800,color:col,fontFamily:"'Inter',sans-serif",lineHeight:1}}>{val}</div>
+                    ["Novit (esperado)",    r.novit !== null ? r.novit.toLocaleString() : "—", T.text],
+                    ["Supabase (cargado)",  r.supabase.toLocaleString(), r.discrepancia ? T.red : T.text],
+                  ].map(([lbl, val, col]) => (
+                    <div key={lbl} style={{ background: "rgba(0,0,0,0.22)", borderRadius: 7, padding: "6px 9px" }}>
+                      <div style={{
+                        fontSize: 8, color: T.muted, fontFamily: "'Inter',sans-serif",
+                        marginBottom: 2, textTransform: "uppercase", letterSpacing: "0.05em",
+                      }}>{lbl}</div>
+                      <div style={{
+                        fontSize: 18, fontWeight: 800, color: col,
+                        fontFamily: "'Inter',sans-serif", lineHeight: 1,
+                      }}>{val}</div>
                     </div>
                   ))}
                 </div>
-                {r.discrepancia && r.faltantes!==null && (
-                  <div style={{padding:"5px 10px",background:"rgba(239,68,68,0.12)",borderRadius:7,fontSize:11,color:"#fca5a5",fontWeight:600,fontFamily:"'Inter',sans-serif",display:"flex",alignItems:"center",gap:5}}>
+
+                {/* Alerta de faltantes */}
+                {r.discrepancia && r.faltantes > 0 && (
+                  <div style={{
+                    marginTop: 7, padding: "5px 9px",
+                    background: "rgba(239,68,68,0.12)", borderRadius: 7,
+                    fontSize: 11, color: "#fca5a5", fontWeight: 600,
+                    fontFamily: "'Inter',sans-serif", display: "flex", alignItems: "center", gap: 5,
+                  }}>
                     ⚠ {r.faltantes.toLocaleString()} alertas sin cargar
                   </div>
                 )}
-                {r.errorNovit && (
-                  <div style={{fontSize:10,color:T.amber,fontFamily:"'Inter',sans-serif"}}>Error: {r.errorNovit}</div>
+
+                {/* Mensaje de error */}
+                {r.error && (
+                  <div style={{ marginTop: 6, fontSize: 10, color: T.amber, fontFamily: "'Inter',sans-serif" }}>
+                    Error: {r.error}
+                  </div>
                 )}
               </div>
             );
@@ -560,7 +686,7 @@ function AlertaDiscrepancia({ allData, filters }) {
       )}
     </div>
   );
-}
+} // fin AlertaDiscrepancia
 
 // ─── VISTA EJECUTIVO ──────────────────────────────────────────────────────────
 function ViewEjecutivo({ data, prevData }) {
@@ -580,7 +706,6 @@ function ViewEjecutivo({ data, prevData }) {
   const finde=data.filter(r=>isFinde(r.fecha)).length, semana=total-finde;
   const kc=[T.accent,T.green,T.amber,T.red,"#38bdf8","#f472b6"];
 
-  // Daily chart
   const byDayEntries=useMemo(()=>{const c={};data.forEach(r=>{if(r.fecha)c[r.fecha]=(c[r.fecha]||0)+1});return Object.entries(c).sort((a,b)=>a[0].localeCompare(b[0]))},[data]);
   const dailyVals=byDayEntries.map(([,v])=>v);
   const dailyMax=Math.max(...dailyVals,1);
@@ -955,11 +1080,8 @@ export default function App() {
           @page { size: A4 landscape; margin: 12mm 10mm; }
           body { background: #fff !important; color: #111 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .no-print { display: none !important; }
-          /* forzar colores de fondo en cards y KPIs */
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-          /* encabezado de impresión con resumen de filtros */
           .print-header { display: block !important; }
-          /* ocultar mapa leaflet en print (no renderiza bien) */
           .cgm-dark-tiles { display: none; }
         }
         .print-header { display: none; }
@@ -1050,7 +1172,6 @@ export default function App() {
                   <button onClick={()=>setFilters(f=>({...f,cgm:""}))} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:14,lineHeight:1,padding:"2px 4px"}}>✕</button>
                 </>
               )}
-              {/* PDF export */}
               <button
                 className="no-print"
                 onClick={()=>window.print()}
