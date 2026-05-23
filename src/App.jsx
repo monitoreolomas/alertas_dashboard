@@ -423,10 +423,11 @@ async function disc_fetchNovit(token, desde, hasta) {
     estadoActual: "Finalizada",
     fechaCreacion: { $gte: desde, $lt: hasta },
   };
-  const url = `${API_NOVIT}?limit=1&filter=${encodeURIComponent(JSON.stringify(filtro))}`;
+  const url = `${API_NOVIT}?limit=1000&filter=${encodeURIComponent(JSON.stringify(filtro))}`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return (await res.json()).totalCount ?? 0;
+  const json = await res.json();
+return json.totalCount ?? json.datos?.length ?? 0;
 }
 
 /** Suma todos los bloques de un tipo de turno haciendo llamadas en paralelo */
