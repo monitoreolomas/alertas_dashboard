@@ -67,8 +67,9 @@ function buildUrl(page, fechaDesde = null) {
 function limpiarTexto(str) {
   if (!str || typeof str !== "string") return null;
   return str
-    .replace(/[\u0000-\u001F\u007F-\u009F]/g, "") // caracteres de control
-    .replace(/\\u[0-9a-fA-F]{0,3}(?![0-9a-fA-F])/g, "") // unicode incompleto
+    .replace(/\u0000/g, "")                        // null bytes — PostgreSQL los rechaza
+    .replace(/[\u0000-\u001F\u007F-\u009F]/g, "")  // caracteres de control
+    .replace(/\\u[0-9a-fA-F]{0,3}\b/g, "")         // secuencias unicode incompletas
     .trim() || null;
 }
 function normalizar(u) {
