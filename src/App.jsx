@@ -267,6 +267,237 @@ function FiltersPanel({ filters, setFilters, options, open, setOpen }) {
   );
 }
 
+// ─── ALERTA DISCREPANCIA ─────────────────────────────────────────────────────
+const API_NOVIT = "https://apis2.novit.gpesistemas.ar/monitoreo/alertas";
+
+// Calcula los rangos horarios de cada turno para una fecha dada
+function getTurnosDelDia(fechaStr) {
+  const d = new Date(fechaStr + "T00:00:00");
+  const esFindeLocal = d.getDay() === 0 || d.getDay() === 6;
+  const base = fechaStr; // YYYY-MM-DD
+
+  if (esFindeLocal) {
+    // Finde: Mañana 06-18, Noche 18-06 del día siguiente
+    return [
+      { nombre: "Mañana", desde: `${base}T06:00:00.000Z`, hasta: `${base}T18:00:00.000Z` },
+      { nombre: "Noche",  desde: `${base}T18:00:00.000Z`, hasta: `${base}T23:59:59.999Z` },
+    ];
+  }
+  // Semana: Mañana 06-14, Tarde 14-22, Noche 22-06
+  return [
+    { nombre: "Mañana", desde: `${base}T06:00:00.000Z`, hasta: `${base}T14:00:00.000Z` },
+    { nombre: "Tarde",  desde: `${base}T14:00:00.000Z`, hasta: `${base}T22:00:00.000Z` },
+    { nombre: "Noche",  desde: `${base}T22:00:00.000Z`, hasta: `${base}T23:59:59.999Z` },
+  ];
+}
+
+async function fetchNovitCount(token, desde, hasta) {
+  const filtro = { estadoActual: "Finalizada", fechaCreacion: { $gte: desde, $lt: hasta } };
+  const url = `${API_NOVIT}?limit=1&filter=${encodeURIComponent(JSON.stringify(filtro))}`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  return data.totalCount ?? 0;
+}
+
+function AlertaDiscrepancia({ allData }) {
+  const [estado, setEstado] = useState("idle"); // idle | cargando | ok | error | sin_token
+  const [resultados, setResultados] = useState([]);
+  const [ultimaCheck, setUltimaCheck] = useState(null);
+  const [expandido, setExpandido] = useState(true);
+
+  useEffect(() => {
+    async function verificar() {
+      // El token vive en sessionStorage del sistema de monitoreo — el usuario
+      // debe tener esa pestaña abierta en el mismo browser para que esté disponible.
+      // Como estamos en un dominio distinto no podemos leerlo directamente;
+      // lo pedimos al usuario o lo guardamos en localStorage por conveniencia.
+      const token =
+        window._novitToken ||
+        localStorage.getItem("novit_token") ||
+        sessionStorage.getItem("novit_token");
+
+      if (!token) { setEstado("sin_token"); return; }
+
+      setEstado("cargando");
+      const hoy = todayStr();
+      const turnos = getTurnosDelDia(hoy);
+
+      // Contar en Supabase por turno usando los datos ya cargados
+      const filas = allData.filter(r => r.fecha === hoy);
+
+      const checks = await Promise.all(turnos.map(async (turno) => {
+        // Supabase: contar registros cuyo horario cae en el rango del turno
+        const enSupabase = filas.filter(r => {
+          const h = getHour(r.horario);
+          if (h === null) return false;
+          const esFinde = isFinde(r.fecha);
+          return getTurno(h, esFinde) === turno.nombre;
+        }).length;
+
+        let enNovit = null;
+        let errorNovit = null;
+        try {
+          enNovit = await fetchNovitCount(token, turno.desde, turno.hasta);
+        } catch(e) {
+          errorNovit = e.message;
+        }
+
+        const discrepancia = enNovit !== null && enSupabase < enNovit;
+        const faltantes = enNovit !== null ? enNovit - enSupabase : null;
+
+        return { ...turno, enSupabase, enNovit, discrepancia, faltantes, errorNovit };
+      }));
+
+      setResultados(checks);
+      setUltimaCheck(new Date().toLocaleTimeString("es-AR"));
+      setEstado(checks.some(c => c.discrepancia) ? "alerta" : "ok");
+    }
+
+    if (allData.length > 0) verificar();
+  }, [allData]);
+
+  // No mostrar nada si está idle o sin datos
+  if (estado === "idle") return null;
+
+  // Si no hay token, mostrar instrucción para configurarlo
+  if (estado === "sin_token") return (
+    <div style={{
+      background:"rgba(245,158,11,0.08)", border:"1px solid rgba(245,158,11,0.35)",
+      borderRadius:12, padding:"12px 18px", marginBottom:16,
+      display:"flex", alignItems:"flex-start", gap:12,
+    }}>
+      <span style={{fontSize:20,flexShrink:0}}>🔑</span>
+      <div>
+        <div style={{fontSize:12,fontWeight:700,color:T.amber,marginBottom:4}}>Token de Novit no configurado</div>
+        <div style={{fontSize:11,color:T.text2,lineHeight:1.6}}>
+          Para habilitar la verificación automática, abrí la consola del browser en{" "}
+          <code style={{background:"rgba(255,255,255,0.06)",padding:"1px 5px",borderRadius:4,fontSize:10}}>
+            monitoreo.grupocontrol.ar
+          </code>{" "}
+          y ejecutá:
+        </div>
+        <code style={{display:"block",marginTop:6,background:"rgba(0,0,0,0.3)",padding:"6px 10px",borderRadius:6,fontSize:10,color:"#a5f3fc",lineHeight:1.8}}>
+          localStorage.setItem('novit_token', sessionStorage.getItem('token'))
+        </code>
+        <div style={{fontSize:10,color:T.muted,marginTop:4}}>Después recargá este dashboard.</div>
+      </div>
+    </div>
+  );
+
+  const hayAlerta = estado === "alerta";
+  const cargando  = estado === "cargando";
+
+  const borderColor = cargando ? T.border : hayAlerta ? "rgba(239,68,68,0.4)" : "rgba(16,185,129,0.35)";
+  const bgColor     = cargando ? "rgba(139,92,246,0.05)" : hayAlerta ? "rgba(239,68,68,0.06)" : "rgba(16,185,129,0.05)";
+  const iconoPrin   = cargando ? "⏳" : hayAlerta ? "🚨" : "✅";
+  const tituloPrin  = cargando
+    ? "Verificando discrepancias con Novit…"
+    : hayAlerta
+    ? `Discrepancia detectada — ${resultados.filter(r=>r.discrepancia).length} turno(s) con alertas faltantes en Supabase`
+    : "Sin discrepancias — Supabase coincide con Novit en todos los turnos de hoy";
+
+  return (
+    <div style={{
+      background: bgColor,
+      border: `1px solid ${borderColor}`,
+      borderRadius: 12,
+      marginBottom: 16,
+      overflow: "hidden",
+    }}>
+      {/* Header clickeable */}
+      <div
+        onClick={() => !cargando && setExpandido(e => !e)}
+        style={{
+          padding:"12px 18px", display:"flex", alignItems:"center",
+          gap:10, cursor: cargando ? "default" : "pointer",
+        }}
+      >
+        <span style={{fontSize:18,flexShrink:0}}>{iconoPrin}</span>
+        <div style={{flex:1}}>
+          <div style={{
+            fontSize:12, fontWeight:700, fontFamily:"'Inter',sans-serif",
+            color: cargando ? T.text2 : hayAlerta ? "#fca5a5" : "#6ee7b7",
+          }}>{tituloPrin}</div>
+          {ultimaCheck && (
+            <div style={{fontSize:10,color:T.muted,marginTop:2,fontFamily:"'Inter',sans-serif"}}>
+              Última verificación: {ultimaCheck} · Turno actual del día: {todayStr()}
+            </div>
+          )}
+        </div>
+        {!cargando && (
+          <span style={{fontSize:11,color:T.muted,transform:expandido?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.2s"}}>▼</span>
+        )}
+      </div>
+
+      {/* Detalle por turno */}
+      {!cargando && expandido && resultados.length > 0 && (
+        <div style={{
+          borderTop:`1px solid ${borderColor}`,
+          padding:"12px 18px",
+          display:"grid",
+          gridTemplateColumns:`repeat(${resultados.length}, 1fr)`,
+          gap:10,
+        }}>
+          {resultados.map(r => {
+            const ok = !r.discrepancia && r.errorNovit === null;
+            const color = r.errorNovit ? T.amber : ok ? T.green : T.red;
+            const bg    = r.errorNovit ? "rgba(245,158,11,0.08)" : ok ? "rgba(16,185,129,0.07)" : "rgba(239,68,68,0.08)";
+            return (
+              <div key={r.nombre} style={{
+                background: bg,
+                border:`1px solid ${color}33`,
+                borderRadius:10, padding:"10px 14px",
+              }}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                  <span style={{fontSize:12,fontWeight:700,color,fontFamily:"'Inter',sans-serif"}}>
+                    {r.nombre === "Mañana" ? "🌅" : r.nombre === "Tarde" ? "🌇" : "🌙"} {r.nombre}
+                  </span>
+                  {r.errorNovit
+                    ? <span style={{fontSize:9,color:T.amber,background:"rgba(245,158,11,0.15)",padding:"2px 7px",borderRadius:10,fontWeight:600}}>ERROR API</span>
+                    : ok
+                    ? <span style={{fontSize:9,color:T.green,background:"rgba(16,185,129,0.12)",padding:"2px 7px",borderRadius:10,fontWeight:600}}>OK</span>
+                    : <span style={{fontSize:9,color:T.red,background:"rgba(239,68,68,0.15)",padding:"2px 7px",borderRadius:10,fontWeight:600}}>FALTANTES</span>
+                  }
+                </div>
+
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+                  {[
+                    ["Novit (esperado)", r.enNovit !== null ? r.enNovit.toLocaleString() : "—", T.text],
+                    ["Supabase (cargado)", r.enSupabase.toLocaleString(), r.discrepancia ? T.red : T.text],
+                  ].map(([lbl,val,col]) => (
+                    <div key={lbl} style={{background:"rgba(0,0,0,0.2)",borderRadius:7,padding:"6px 10px"}}>
+                      <div style={{fontSize:9,color:T.muted,fontFamily:"'Inter',sans-serif",marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em"}}>{lbl}</div>
+                      <div style={{fontSize:18,fontWeight:800,color:col,fontFamily:"'Inter',sans-serif",lineHeight:1}}>{val}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {r.discrepancia && r.faltantes !== null && (
+                  <div style={{
+                    marginTop:8, padding:"5px 10px",
+                    background:"rgba(239,68,68,0.12)", borderRadius:7,
+                    fontSize:11, color:"#fca5a5", fontWeight:600,
+                    fontFamily:"'Inter',sans-serif",
+                    display:"flex", alignItems:"center", gap:5,
+                  }}>
+                    ⚠ {r.faltantes.toLocaleString()} alertas sin cargar en Supabase
+                  </div>
+                )}
+                {r.errorNovit && (
+                  <div style={{marginTop:8,fontSize:10,color:T.amber,fontFamily:"'Inter',sans-serif"}}>
+                    Error: {r.errorNovit}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── VISTA EJECUTIVO ──────────────────────────────────────────────────────────
 function ViewEjecutivo({ data, prevData }) {
   const total=data.length, totalPrev=prevData.length;
@@ -711,6 +942,9 @@ export default function App() {
         <div style={{maxWidth:1440,margin:"0 auto",padding:"16px 20px"}}>
 
           {error&&<div style={{background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.3)",borderRadius:10,padding:"10px 14px",color:"#fca5a5",fontSize:12,marginBottom:14}}>⚠ Error Supabase: {error}</div>}
+
+          {/* ── ALERTA DISCREPANCIA NOVIT vs SUPABASE ── */}
+          {!loading && <AlertaDiscrepancia allData={allData}/>}
 
           {/* ── FILTROS ── */}
           <div className="no-print">
