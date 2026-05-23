@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, Fragment } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = "https://ygwjvkjrpojxjczcholu.supabase.co";
@@ -101,11 +101,9 @@ function Sparkline({ values, color=T.accent, w=90, h=26 }) {
   );
 }
 
-// CHANGED: KPI now accepts invertDelta prop — for alerts, fewer = better (green), more = red
 function KPI({ label, value, sub, delta, sparkValues, color=T.accent, icon, invertDelta=false }) {
   const dNum = parseFloat(delta);
   const isPos = dNum > 0, isNeg = dNum < 0;
-  // invertDelta: positive change is BAD (red), negative change is GOOD (green)
   let deltaColor, deltaIcon;
   if (invertDelta) {
     deltaColor = isPos ? T.red : isNeg ? T.green : T.muted;
@@ -163,6 +161,7 @@ function HBar({ label, value, max, color, total }) {
   );
 }
 
+// FIX 1: Use Fragment (imported) instead of React.Fragment
 function Heatmap({ matrix, rowLabels, colLabels }) {
   const max = Math.max(...matrix.flat(),1);
   return (
@@ -171,14 +170,14 @@ function Heatmap({ matrix, rowLabels, colLabels }) {
         <div/>
         {colLabels.map(l=><div key={l} style={{fontSize:8,color:T.muted,textAlign:"center",paddingBottom:3,fontFamily:"'Inter',sans-serif"}}>{l}</div>)}
         {rowLabels.map((row,ri)=>(
-          <React.Fragment key={`row-${ri}`}>
+          <Fragment key={`row-${ri}`}>
             <div style={{fontSize:9,color:T.text2,display:"flex",alignItems:"center",fontFamily:"'Inter',sans-serif"}}>{row}</div>
             {colLabels.map((_,ci)=>{
               const v=matrix[ri][ci]; const intensity=v/max;
               const bg = intensity<0.01 ? "rgba(255,255,255,0.03)" : `rgba(139,92,246,${0.08+intensity*0.82})`;
               return <div key={`${ri}-${ci}`} style={{background:bg,borderRadius:2,aspectRatio:"1",display:"flex",alignItems:"center",justifyContent:"center",fontSize:7,color:intensity>0.5?"#e2e8f0":"#64748b",fontFamily:"'Inter',sans-serif",cursor:"default"}} title={`${row} ${colLabels[ci]}: ${v}`}>{v>0?v:""}</div>;
             })}
-          </React.Fragment>
+          </Fragment>
         ))}
       </div>
     </div>
@@ -280,7 +279,6 @@ function ViewEjecutivo({ data, prevData }) {
   return (
     <div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))",gap:12,marginBottom:20}}>
-        {/* CHANGED: invertDelta=true so fewer alerts = green, more = red */}
         <KPI label="Total Alertas" value={fmt(total)} sub={`${uniqueDays} días con registros`} delta={pct(total,totalPrev)} sparkValues={byDay.slice(-14)} color={T.accent} icon="📡" invertDelta={true}/>
         <KPI label="Promedio Diario" value={promDiario} sub="alertas por día activo" color="#38bdf8" icon="📊"/>
         <KPI label="Hora Pico" value={`${String(horaPico).padStart(2,"0")}:00`} sub={`${byHour[horaPico]} alertas`} color={T.amber} icon="⏰"/>
@@ -324,7 +322,6 @@ function ViewEjecutivo({ data, prevData }) {
 }
 
 // ─── VISTA TEMPORAL ───────────────────────────────────────────────────────────
-// FIXED: Added background color to ensure it doesn't go blank
 function ViewTemporal({ data }) {
   const heatmap=useMemo(()=>{
     const m=Array.from({length:7},()=>Array(24).fill(0));
@@ -358,7 +355,7 @@ function ViewTemporal({ data }) {
   }
 
   return (
-    <div style={{background:"transparent"}}>
+    <div>
       <Card title="Heatmap · Día de Semana × Hora" icon="🌡️" style={{marginBottom:14}}>
         <div style={{fontSize:10,color:T.muted,marginBottom:12,fontFamily:"'Inter',sans-serif"}}>Mayor intensidad = más alertas en ese cruce horario</div>
         <Heatmap matrix={heatmap} rowLabels={DIAS} colLabels={colHours}/>
@@ -562,7 +559,6 @@ function ViewMapa({ data, filters, setFilters }) {
 }
 
 // ─── VISTA USUARIOS ───────────────────────────────────────────────────────────
-// CHANGED: Age ranges now only 18–100 (filters out <18 and >100 as invalid data)
 const AGE_RANGES = [
   { label:"18–25", min:18,  max:25,  color:"#38bdf8" },
   { label:"26–35", min:26,  max:35,  color:"#8b5cf6" },
@@ -573,7 +569,6 @@ const AGE_RANGES = [
   { label:"76–100",min:76,  max:100, color:"#a78bfa" },
 ];
 
-// CHANGED: New horizontal bar chart for age ranges — replaces the donut
 function AgeBarChart({ ranges, total }) {
   if (!ranges || ranges.length === 0) return <div style={{color:T.muted,fontSize:11,fontFamily:"'Inter',sans-serif"}}>Sin datos de edad válidos</div>;
   const maxVal = Math.max(...ranges.map(r => r.value), 1);
@@ -596,7 +591,6 @@ function AgeBarChart({ ranges, total }) {
                 background:`linear-gradient(90deg,${r.color}cc,${r.color})`,
                 borderRadius:5,
                 transition:"width 0.6s ease",
-                position:"relative",
               }}/>
             </div>
           </div>
@@ -606,7 +600,6 @@ function AgeBarChart({ ranges, total }) {
   );
 }
 
-// CHANGED: Users view now has date and CGM filters; removed "Sin Categoría" KPI
 function ViewUsuarios() {
   const [estado, setEstado] = useState("idle");
   const [usuarios, setUsuarios] = useState([]);
@@ -615,7 +608,6 @@ function ViewUsuarios() {
   const [paginaRecientes, setPaginaRecientes] = useState(0);
   const POR_PAGINA = 8;
 
-  // NEW: local filters for the Usuarios view
   const [userFilters, setUserFilters] = useState({
     fechaDesde: "",
     fechaHasta: "",
@@ -651,6 +643,50 @@ function ViewUsuarios() {
 
   useEffect(() => { cargarUsuarios(); }, []);
 
+  // FIX 2: usuariosNormalizados as useMemo so it's a stable reference for downstream memos
+  const usuariosNormalizados = useMemo(() => usuarios.map(u => {
+    const sexo = getSexoLabel(u?.datosPersonales?.sexo);
+    const edad = calcularEdad(u?.datosPersonales?.fechaNacimiento);
+
+    let categoriaNombre = "Sin categoría";
+    if (u?.categoria?.categoria?.nombre) {
+      categoriaNombre = u.categoria.categoria.nombre;
+    } else if (Array.isArray(u?.categoria) && u.categoria.length > 0) {
+      categoriaNombre = u.categoria[0]?.categoria?.nombre || u.categoria[0]?.nombre || "Sin categoría";
+    } else if (u?.cliente?.categoriaDefault?.nombre) {
+      categoriaNombre = u.cliente.categoriaDefault.nombre;
+    }
+
+    const localidadNombre = u?.direccion?.localidad?.nombre || u?.localidad || "Sin dato";
+
+    return {
+      ...u,
+      nombre:       u?.datosPersonales?.nombre    || "",
+      apellido:     u?.datosPersonales?.apellido  || "",
+      sexo,
+      edad,
+      categoriaFix: categoriaNombre,
+      plataforma:   u.appType || "Sin dato",
+      localidadNombre,
+    };
+  }), [usuarios]);
+
+  // FIX 2 cont: now usuariosNormalizados is stable, this useMemo works correctly
+  const usuariosFiltrados = useMemo(() => {
+    return usuariosNormalizados.filter(u => {
+      if (userFilters.fechaDesde) {
+        const fc = u.fechaCreacion ? u.fechaCreacion.slice(0,10) : "";
+        if (fc < userFilters.fechaDesde) return false;
+      }
+      if (userFilters.fechaHasta) {
+        const fc = u.fechaCreacion ? u.fechaCreacion.slice(0,10) : "";
+        if (fc > userFilters.fechaHasta) return false;
+      }
+      if (userFilters.cgm && u.localidadNombre !== userFilters.cgm) return false;
+      return true;
+    });
+  }, [usuariosNormalizados, userFilters]);
+
   if (estado === "sin_token") return (
     <div style={{padding:40,display:"flex",flexDirection:"column",alignItems:"center",gap:16}}>
       <div style={{fontSize:32}}>🔑</div>
@@ -681,55 +717,7 @@ function ViewUsuarios() {
   const total  = totalCount ?? usuarios.length;
   const muestra = usuarios.length;
 
-  // ── Normalize all users ──────────────────────────────────────────────────────
-  const usuariosNormalizados = usuarios.map(u => {
-    const sexo = getSexoLabel(u?.datosPersonales?.sexo);
-    const edad = calcularEdad(u?.datosPersonales?.fechaNacimiento);
-
-    let categoriaNombre = "Sin categoría";
-    if (u?.categoria?.categoria?.nombre) {
-      categoriaNombre = u.categoria.categoria.nombre;
-    } else if (Array.isArray(u?.categoria) && u.categoria.length > 0) {
-      categoriaNombre = u.categoria[0]?.categoria?.nombre || u.categoria[0]?.nombre || "Sin categoría";
-    } else if (u?.cliente?.categoriaDefault?.nombre) {
-      categoriaNombre = u.cliente.categoriaDefault.nombre;
-    }
-
-    // Normalize CGM/localidad
-    const localidadNombre = u?.direccion?.localidad?.nombre || u?.localidad || "Sin dato";
-
-    return {
-      ...u,
-      nombre:       u?.datosPersonales?.nombre    || "",
-      apellido:     u?.datosPersonales?.apellido  || "",
-      sexo,
-      edad,
-      categoriaFix: categoriaNombre,
-      plataforma:   u.appType || "Sin dato",
-      localidadNombre,
-    };
-  });
-
-  // ── NEW: apply local filters (fecha + CGM) ────────────────────────────────
-  const usuariosFiltrados = useMemo(() => {
-    return usuariosNormalizados.filter(u => {
-      // Date filter on fechaCreacion
-      if (userFilters.fechaDesde) {
-        const fc = u.fechaCreacion ? u.fechaCreacion.slice(0,10) : "";
-        if (fc < userFilters.fechaDesde) return false;
-      }
-      if (userFilters.fechaHasta) {
-        const fc = u.fechaCreacion ? u.fechaCreacion.slice(0,10) : "";
-        if (fc > userFilters.fechaHasta) return false;
-      }
-      // CGM/localidad filter
-      if (userFilters.cgm && u.localidadNombre !== userFilters.cgm) return false;
-      return true;
-    });
-  }, [usuariosNormalizados, userFilters]);
-
-  // ── Edades (CHANGED: filter 18–100 only for charts/stats) ─────────────────
-  // NOTE: Total usuarios KPI uses unfiltered muestra, age stats use valid range
+  // ── Edades ─────────────────────────────────────────────────────────────────
   const edadesValidas = usuariosFiltrados
     .map(u => u.edad)
     .filter(e => e != null && !isNaN(e) && e >= 18 && e <= 100);
@@ -738,20 +726,19 @@ function ViewUsuarios() {
   const edadMin  = edadesValidas.length ? Math.min(...edadesValidas) : "—";
   const edadMax  = edadesValidas.length ? Math.max(...edadesValidas) : "—";
 
-  // CHANGED: age ranges with filtered data (18–100 only)
   const porRangoEdad = AGE_RANGES.map(r => ({
     label: r.label, color: r.color,
     value: edadesValidas.filter(e => e >= r.min && e <= r.max).length,
   })).filter(r => r.value > 0);
 
-  // ── Sexo ─────────────────────────────────────────────────────────────────────
+  // ── Sexo ──────────────────────────────────────────────────────────────────
   const porSexo = usuariosFiltrados.reduce((acc,u) => {
     acc[u.sexo] = (acc[u.sexo] || 0) + 1;
     return acc;
   }, {});
   const sexoColors = { M:"#38bdf8", F:"#f472b6", "Sin dato":T.muted };
 
-  // ── Localidad ────────────────────────────────────────────────────────────────
+  // ── Localidad ────────────────────────────────────────────────────────────
   const porLocalidad = {};
   usuariosFiltrados.forEach(u => {
     porLocalidad[u.localidadNombre] = (porLocalidad[u.localidadNombre] || 0) + 1;
@@ -759,17 +746,17 @@ function ViewUsuarios() {
   const topLocalidades = topN(porLocalidad, 10);
   const locMax = Math.max(...topLocalidades.map(([,v])=>v), 1);
 
-  // ── Plataforma ───────────────────────────────────────────────────────────────
+  // ── Plataforma ─────────────────────────────────────────────────────────────
   const porPlataforma = usuariosFiltrados.reduce((acc,u) => {
     acc[u.plataforma] = (acc[u.plataforma] || 0) + 1;
     return acc;
   }, {});
 
-  // ── DNI ──────────────────────────────────────────────────────────────────────
+  // ── DNI ────────────────────────────────────────────────────────────────────
   const conDni = usuariosFiltrados.filter(u => u.dniEscaneado === true || u.dniEscaneado === "true").length;
   const sinDni = usuariosFiltrados.length - conDni;
 
-  // ── Categorías ───────────────────────────────────────────────────────────────
+  // ── Categorías ─────────────────────────────────────────────────────────────
   const categorias = usuariosFiltrados.reduce((acc, u) => {
     const nombre = u.categoriaFix;
     acc[nombre] = (acc[nombre] || 0) + 1;
@@ -777,7 +764,7 @@ function ViewUsuarios() {
   }, {});
   const topCategorias = topN(categorias, 8);
 
-  // ── Evolución de altas ───────────────────────────────────────────────────────
+  // ── Evolución de altas ─────────────────────────────────────────────────────
   const altasPorFecha = {};
   usuariosFiltrados.forEach(u => {
     const f = u.fechaCreacion?.slice(0,10);
@@ -786,7 +773,6 @@ function ViewUsuarios() {
   const altasEntries = Object.entries(altasPorFecha).sort((a,b) => a[0].localeCompare(b[0]));
   const altasVals = altasEntries.map(([,v]) => v);
 
-  // Altas mes actual
   const ahora = new Date();
   const altasMes = usuariosFiltrados.filter(u => {
     if (!u.fechaCreacion) return false;
@@ -794,13 +780,13 @@ function ViewUsuarios() {
     return f.getMonth() === ahora.getMonth() && f.getFullYear() === ahora.getFullYear();
   }).length;
 
-  // ── Últimos registrados ──────────────────────────────────────────────────────
+  // ── Últimos registrados ───────────────────────────────────────────────────
   const recientes = [...usuariosFiltrados].sort((a,b) => new Date(b.fechaCreacion) - new Date(a.fechaCreacion));
   const pageStart = paginaRecientes * POR_PAGINA;
   const recientesPagina = recientes.slice(pageStart, pageStart + POR_PAGINA);
   const totalPaginas = Math.ceil(recientes.length / POR_PAGINA);
 
-  // ── SVG evolución ─────────────────────────────────────────────────────────────
+  // ── SVG evolución ──────────────────────────────────────────────────────────
   const W=700, H=90, PAD=8;
   const altasMax = Math.max(...altasVals, 1);
   const altasPts = altasVals.map((v,i) => [
@@ -811,7 +797,7 @@ function ViewUsuarios() {
   const altasArea = `${PAD},${H} ${altasPolyline} ${W-PAD},${H}`;
   const altasStep = Math.max(1, Math.floor(altasVals.length/6));
 
-  // ── Filter UI helpers ─────────────────────────────────────────────────────────
+  // ── Filter UI helpers ─────────────────────────────────────────────────────
   const baseInp = {
     background:"#0d0d1f", border:`1px solid ${T.border}`, color:T.text,
     borderRadius:10, padding:"7px 10px", fontSize:12,
@@ -822,12 +808,11 @@ function ViewUsuarios() {
   const hasActiveFilters = userFilters.fechaDesde || userFilters.fechaHasta || userFilters.cgm;
   const filteredCount = usuariosFiltrados.length;
 
-  // ── Localidad options for CGM dropdown ───────────────────────────────────────
   const localidadOptions = [...new Set(usuariosNormalizados.map(u => u.localidadNombre).filter(l => l && l !== "Sin dato"))].sort();
 
   return (
     <div>
-      {/* NEW: Filters panel for Usuarios */}
+      {/* Filters panel */}
       <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,marginBottom:16,overflow:"hidden"}}>
         <button onClick={()=>setUserFiltersOpen(o=>!o)} style={{width:"100%",background:"transparent",border:"none",padding:"12px 18px",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",color:T.text2}}>
           <span style={{fontSize:12,fontWeight:600,fontFamily:"'Inter',sans-serif",letterSpacing:"0.05em",display:"flex",alignItems:"center",gap:8}}>
@@ -876,9 +861,8 @@ function ViewUsuarios() {
         </button>
       </div>
 
-      {/* KPIs — CHANGED: removed "Sin Categoría" KPI; total usuarios is always from full dataset */}
+      {/* KPIs */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(175px,1fr))",gap:12,marginBottom:20}}>
-        {/* FIXED: Total siempre muestra el total del sistema, no el filtrado */}
         <KPI label="Usuarios Totales" value={fmt(total)} sub="en el sistema (sin filtro)" color={T.accent} icon="👥"/>
         <KPI label="Altas Este Mes"   value={fmt(altasMes)} sub={hasActiveFilters?"en filtro seleccionado":`de ${filteredCount} en muestra`} color={T.green} icon="📈"/>
         <KPI label="Edad Promedio"    value={edadProm!=="—"?`${edadProm} años`:"—"} sub={edadesValidas.length>0?`mín ${edadMin} · máx ${edadMax} · ${edadesValidas.length} con edad válida`:"Solo edades 18–100"} color="#38bdf8" icon="🎂"/>
@@ -893,7 +877,6 @@ function ViewUsuarios() {
           ))}
         </Card>
 
-        {/* CHANGED: New age bar chart */}
         <Card title="Distribución por Edad (18–100 años válidos)" icon="🎂">
           <div style={{fontSize:10,color:T.muted,marginBottom:12,fontFamily:"'Inter',sans-serif"}}>
             Se excluyen edades menores de 18 y mayores de 100 (datos incorrectos).
@@ -914,7 +897,7 @@ function ViewUsuarios() {
           </Card>
           <Card title="Plataforma" icon="📱" style={{flex:1}}>
             {Object.entries(porPlataforma).slice(0,4).map(([p,v]) => (
-              <HBar key={p} label={p} value={v} max={Math.max(...Object.values(porPlataforma),1)} color={p.toLowerCase().includes("ios")?'#38bdf8':p.toLowerCase().includes("android")?T.green:T.muted} total={filteredCount}/>
+              <HBar key={p} label={p} value={v} max={Math.max(...Object.values(porPlataforma),1)} color={p.toLowerCase().includes("ios")?"#38bdf8":p.toLowerCase().includes("android")?T.green:T.muted} total={filteredCount}/>
             ))}
           </Card>
         </div>
@@ -1188,8 +1171,6 @@ export default function App() {
         <div style={{maxWidth:1440,margin:"0 auto",padding:"16px 20px"}}>
 
           {error && <div style={{background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.3)",borderRadius:10,padding:"10px 14px",color:"#fca5a5",fontSize:12,marginBottom:14}}>⚠ Error Supabase: {error}</div>}
-
-          {/* REMOVED: AlertaDiscrepancia panel completely removed */}
 
           {!isUsuariosTab && (
             <div className="no-print">
