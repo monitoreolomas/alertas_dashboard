@@ -73,12 +73,20 @@ function limpiarTexto(str) {
     .trim() || null;
 }
 function sanitizarFila(obj) {
-  return Object.fromEntries(
-    Object.entries(obj).map(([k, v]) => [
-      k,
-      typeof v === "string" ? v.replace(/\u0000/g, "").trim() : v
-    ])
-  );
+  const limpiar = (v) => {
+    if (v === null || v === undefined) return null;
+    if (typeof v === "string") {
+      return v
+        .replace(/\u0000/g, "")           // null bytes
+        .replace(/[\u0000-\u001F]/g, "")  // control chars
+        .trim() || null;
+    }
+    if (typeof v === "object" && !Array.isArray(v)) {
+      return Object.fromEntries(Object.entries(v).map(([k, val]) => [k, limpiar(val)]));
+    }
+    return v;
+  };
+  return Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, limpiar(v)]));
 }
 function normalizar(u) {
   let categoriaNombre = "Sin categoría";
@@ -133,15 +141,22 @@ async function fetchPage(page, fechaDesde, intentos = 3) {
 
 // ─── Upsert en chunks ─────────────────────────────────────────────────────────
 async function upsertChunk(rows) {
-  if (DRY_RUN) {
-    log(`  [DRY-RUN] Simularía upsert de ${rows.length} filas`);
-    return;
-  }
+  if (DRY_RUN) { log(`  [DRY-RUN] ${rows.length} filas`); return; }
+
   const { error } = await supabase
     .from("usuarios_cache")
     .upsert(rows, { onConflict: "id" });
 
-  if (error) throw new Error(`Supabase upsert error: ${error.message}`);
+  if (error) {
+    // Si falla el chunk, intentar de a uno para no perder todo
+    log(`  ⚠ Chunk falló, reintentando de a uno...`);
+    for (const row of rows) {
+      const { error: e2 } = await supabase
+        .from("usuarios_cache")
+        .upsert([row], { onConflict: "id" });
+      if (e2) log(`  ✗ Saltando usuario ${row.id}: ${e2.message}`);
+    }
+  }
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
