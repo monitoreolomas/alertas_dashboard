@@ -1,0 +1,61 @@
+name: Sync Usuarios Novit → Supabase
+
+on:
+  # ── Automático: cada 6 horas ──────────────────────────────────────────────
+  schedule:
+    - cron: "0 */6 * * *"   # 00:00, 06:00, 12:00, 18:00 UTC
+
+  # ── Manual: desde GitHub → Actions → "Run workflow" ──────────────────────
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: "Tipo de sync"
+        required: true
+        default: "incremental"
+        type: choice
+        options:
+          - incremental   # solo últimos 7 días (rápido)
+          - full          # todos los usuarios (completo)
+
+jobs:
+  sync:
+    name: Sync usuarios
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: sync/package.json
+
+      - name: Instalar dependencias
+        run: npm install
+        working-directory: sync
+
+      - name: Correr sync incremental (automático)
+        if: github.event_name == 'schedule'
+        run: node sync-usuarios.js
+        working-directory: sync
+        env:
+          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          NOVIT_TOKEN:          ${{ secrets.NOVIT_TOKEN }}
+
+      - name: Correr sync manual
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          if [ "${{ github.event.inputs.modo }}" = "full" ]; then
+            node sync-usuarios.js --full
+          else
+            node sync-usuarios.js
+          fi
+        working-directory: sync
+        env:
+          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          NOVIT_TOKEN:          ${{ secrets.NOVIT_TOKEN }}
