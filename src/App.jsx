@@ -339,17 +339,22 @@ const DISC_TURNO_MAP = {
  *
  * Regla especial para la MADRUGADA (00:00–05:59):
  *   Esas horas pertenecen a la NOCHE del día ANTERIOR.
- *   Ejemplo: registro con fecha=Martes horario=03:00 → TN del Lunes.
+ *   Ejemplo: registro con fecha=Sábado horario=03:00 → TN-Fin del Viernes.
+ *
+ * desdeExt = desde - 1 día, para capturar madrugadas del primer día del rango.
  */
-function disc_shiftDeRegistro(r, desde, hasta) {
+function disc_shiftDeRegistro(r, desde, hasta, desdeExt) {
   if (!r.fecha || !r.horario) return null;
   const h = parseInt(r.horario.split(":")[0], 10);
   if (isNaN(h)) return null;
 
   if (h < 6) {
-    // ── Madrugada: el "padre" es el día anterior ──────────────────────────
+    // ── Madrugada: pertenece a la noche del día anterior ──────────────────
     const padre = disc_prevDay(r.fecha);
-    if (padre < desde || padre > hasta) return null; // padre fuera del rango → ignorar
+    // El padre debe caer dentro del rango real (desde..hasta), no solo el extendido.
+    // Usamos desdeExt para que el registro sea encontrado en allData,
+    // pero validamos que el padre esté en [desde, hasta].
+    if (padre < desde || padre > hasta) return null;
     return disc_esFinde(padre) ? "TN-Fin" : "TN-Hab";
   }
 
@@ -365,11 +370,19 @@ function disc_shiftDeRegistro(r, desde, hasta) {
   return "TN-Hab"; // h >= 22
 }
 
-/** Cuenta alertas de Supabase por tipo de turno */
+/**
+ * Cuenta alertas de Supabase por tipo de turno.
+ * Extiende la búsqueda un día hacia atrás para capturar registros de madrugada
+ * (00:00–05:59) cuyo "padre" cae dentro del rango pedido.
+ * Ejemplo: fecha=2026-05-23 horario=03:00 → padre=2026-05-22 → TN-Fin del viernes.
+ */
 function disc_contarSupa(allData, desde, hasta) {
   const c = { "TM-Hab": 0, "TT-Hab": 0, "TN-Hab": 0, "TM-Fin": 0, "TN-Fin": 0 };
+  const desdeExt = disc_prevDay(desde); // un día antes para atrapar madrugadas
   allData.forEach(r => {
-    const s = disc_shiftDeRegistro(r, desde, hasta);
+    // Pre-filtro amplio: descartamos registros claramente fuera de rango
+    if (!r.fecha || r.fecha < desdeExt || r.fecha > hasta) return;
+    const s = disc_shiftDeRegistro(r, desde, hasta, desdeExt);
     if (s) c[s]++;
   });
   return c;
