@@ -610,11 +610,6 @@ function AgeBarChart({ ranges, total }) {
   );
 }
 
-// ─── VISTA USUARIOS (refactorizada) ──────────────────────────────────────────
-// Lee de usuarios_cache en Supabase en lugar de la API de Novit directamente.
-// Carga < 1 segundo. El filtrado por fecha/localidad ocurre en el servidor.
-// ─────────────────────────────────────────────────────────────────────────────
-
 function ViewUsuarios() {
   const [estado, setEstado] = useState("idle");
   const [usuarios, setUsuarios] = useState([]);
@@ -622,14 +617,14 @@ function ViewUsuarios() {
   const [ultimaActualizacion, setUltimaActualizacion] = useState(null);
   const [paginaRecientes, setPaginaRecientes] = useState(0);
   const POR_PAGINA = 8;
-
+ 
   const [userFilters, setUserFilters] = useState({
     fechaDesde: "",
     fechaHasta: "",
     cgm: "",
   });
   const [userFiltersOpen, setUserFiltersOpen] = useState(false);
-
+ 
   // ── Carga desde Supabase ────────────────────────────────────────────────────
   async function cargarUsuarios() {
     setEstado("cargando");
@@ -639,10 +634,10 @@ function ViewUsuarios() {
         .from("v_usuarios_resumen")
         .select("*")
         .single();
-
+ 
       if (resumenErr) console.warn("Sin vista resumen:", resumenErr.message);
       setResumen(resumenData || null);
-
+ 
       // Registros con filtros aplicados en servidor
       let query = supabase
         .from("usuarios_cache")
@@ -650,7 +645,7 @@ function ViewUsuarios() {
         .eq("activo", true)
         .order("fecha_creacion", { ascending: false })
         .limit(2000);   // límite razonable para el dashboard
-
+ 
       if (userFilters.fechaDesde) {
         query = query.gte("fecha_creacion", userFilters.fechaDesde);
       }
@@ -661,10 +656,10 @@ function ViewUsuarios() {
       if (userFilters.cgm) {
         query = query.eq("localidad", userFilters.cgm);
       }
-
+ 
       const { data, error } = await query;
       if (error) throw error;
-
+ 
       setUsuarios(data || []);
       setUltimaActualizacion(new Date().toLocaleTimeString("es-AR"));
       setEstado("ok");
@@ -673,10 +668,10 @@ function ViewUsuarios() {
       setEstado("error");
     }
   }
-
+ 
   // Recarga cuando cambian los filtros
   useEffect(() => { cargarUsuarios(); }, [userFilters]);
-
+ 
   // ── Normalización (los datos ya vienen limpios del sync) ───────────────────
   const usuariosNormalizados = useMemo(() => usuarios.map(u => ({
     ...u,
@@ -690,7 +685,7 @@ function ViewUsuarios() {
     fechaCreacion:   u.fecha_creacion,
     dniEscaneado:    u.dni_escaneado,
   })), [usuarios]);
-
+ 
   // ── Estados de carga ────────────────────────────────────────────────────────
   if (estado === "cargando") return (
     <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:300,gap:16}}>
@@ -698,7 +693,7 @@ function ViewUsuarios() {
       <div style={{fontSize:12,color:T.muted,fontWeight:500,fontFamily:"'Inter',sans-serif"}}>Cargando usuarios…</div>
     </div>
   );
-
+ 
   if (estado === "error") return (
     <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:300,gap:12}}>
       <div style={{fontSize:32}}>⚠️</div>
@@ -708,38 +703,38 @@ function ViewUsuarios() {
       </button>
     </div>
   );
-
+ 
   const filteredCount = usuariosNormalizados.length;
   const ahora = new Date();
-
+ 
   // ── KPI: total real desde la vista (sin filtro) ────────────────────────────
   const totalSistema = resumen?.total ? Number(resumen.total) : null;
   const altasMesActual = resumen?.altas_mes_actual ? Number(resumen.altas_mes_actual) : null;
   const ultimoSync = resumen?.ultimo_sync
     ? new Date(resumen.ultimo_sync).toLocaleString("es-AR")
     : null;
-
+ 
   // ── Edades ─────────────────────────────────────────────────────────────────
   const edadesValidas = usuariosNormalizados
     .map(u => u.edad)
     .filter(e => e != null && !isNaN(e) && e >= 18 && e <= 100);
-
+ 
   const edadProm = edadesValidas.length ? (edadesValidas.reduce((a,b)=>a+b,0)/edadesValidas.length).toFixed(1) : "—";
   const edadMin  = edadesValidas.length ? Math.min(...edadesValidas) : "—";
   const edadMax  = edadesValidas.length ? Math.max(...edadesValidas) : "—";
-
+ 
   const porRangoEdad = AGE_RANGES.map(r => ({
     label: r.label, color: r.color,
     value: edadesValidas.filter(e => e >= r.min && e <= r.max).length,
   })).filter(r => r.value > 0);
-
+ 
   // ── Sexo ──────────────────────────────────────────────────────────────────
   const porSexo = usuariosNormalizados.reduce((acc,u) => {
     acc[u.sexo] = (acc[u.sexo] || 0) + 1;
     return acc;
   }, {});
   const sexoColors = { M:"#38bdf8", F:"#f472b6", "Sin dato":T.muted };
-
+ 
   // ── Localidad ─────────────────────────────────────────────────────────────
   const porLocalidad = {};
   usuariosNormalizados.forEach(u => {
@@ -747,24 +742,24 @@ function ViewUsuarios() {
   });
   const topLocalidades = topN(porLocalidad, 10);
   const locMax = Math.max(...topLocalidades.map(([,v])=>v), 1);
-
+ 
   // ── Plataforma ─────────────────────────────────────────────────────────────
   const porPlataforma = usuariosNormalizados.reduce((acc,u) => {
     acc[u.plataforma] = (acc[u.plataforma] || 0) + 1;
     return acc;
   }, {});
-
+ 
   // ── DNI ────────────────────────────────────────────────────────────────────
   const conDni = usuariosNormalizados.filter(u => u.dniEscaneado).length;
   const sinDni = filteredCount - conDni;
-
+ 
   // ── Categorías ─────────────────────────────────────────────────────────────
   const categorias = usuariosNormalizados.reduce((acc, u) => {
     acc[u.categoriaFix] = (acc[u.categoriaFix] || 0) + 1;
     return acc;
   }, {});
   const topCategorias = topN(categorias, 8);
-
+ 
   // ── Evolución altas ────────────────────────────────────────────────────────
   const altasPorFecha = {};
   usuariosNormalizados.forEach(u => {
@@ -773,7 +768,7 @@ function ViewUsuarios() {
   });
   const altasEntries = Object.entries(altasPorFecha).sort((a,b) => a[0].localeCompare(b[0]));
   const altasVals    = altasEntries.map(([,v]) => v);
-
+ 
   // ── KPI Altas dinámico ─────────────────────────────────────────────────────
   const hayFiltroFecha = !!(userFilters.fechaDesde || userFilters.fechaHasta);
   const kpiAltasLabel  = hayFiltroFecha ? "Altas en el Período" : "Altas Este Mes";
@@ -781,13 +776,13 @@ function ViewUsuarios() {
   const kpiAltasSub    = hayFiltroFecha
     ? `${userFilters.fechaDesde || "–"} → ${userFilters.fechaHasta || "–"}`
     : "en el mes actual";
-
+ 
   // ── Últimos registrados ────────────────────────────────────────────────────
   const recientes = [...usuariosNormalizados].sort((a,b) => new Date(b.fechaCreacion) - new Date(a.fechaCreacion));
   const pageStart = paginaRecientes * POR_PAGINA;
   const recientesPagina = recientes.slice(pageStart, pageStart + POR_PAGINA);
   const totalPaginas = Math.ceil(recientes.length / POR_PAGINA);
-
+ 
   // ── SVG evolución ──────────────────────────────────────────────────────────
   const W=700, H=90, PAD=8;
   const altasMax = Math.max(...altasVals, 1);
@@ -798,7 +793,7 @@ function ViewUsuarios() {
   const altasPolyline = altasPts.map(([x,y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
   const altasArea = `${PAD},${H} ${altasPolyline} ${W-PAD},${H}`;
   const altasStep = Math.max(1, Math.floor(altasVals.length/6));
-
+ 
   // ── Filter UI helpers ──────────────────────────────────────────────────────
   const baseInp = {
     background:"#0d0d1f", border:`1px solid ${T.border}`, color:T.text,
@@ -808,12 +803,12 @@ function ViewUsuarios() {
   const dateInp = { ...baseInp, colorScheme:"dark" };
   const lbl = {fontSize:11,color:T.text2,fontWeight:600,letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:5,fontFamily:"'Inter',sans-serif",display:"block"};
   const hasActiveFilters = userFilters.fechaDesde || userFilters.fechaHasta || userFilters.cgm;
-
+ 
   // Opciones de localidad desde los datos ya cargados
   const localidadOptions = [...new Set(
     usuariosNormalizados.map(u => u.localidadNombre).filter(l => l && l !== "Sin dato")
   )].sort();
-
+ 
   return (
     <div>
       {/* Filters panel */}
@@ -860,7 +855,7 @@ function ViewUsuarios() {
           </div>
         )}
       </div>
-
+ 
       {/* Header */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
         <div style={{fontSize:10,color:T.muted,fontFamily:"'Inter',sans-serif"}}>
@@ -873,7 +868,7 @@ function ViewUsuarios() {
           ↺ Actualizar
         </button>
       </div>
-
+ 
       {/* KPIs */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(175px,1fr))",gap:12,marginBottom:20}}>
         <KPI label="Usuarios Totales"   value={totalSistema!=null?fmt(totalSistema):"—"}   sub="total en el sistema"                color={T.accent}  icon="👥"/>
@@ -887,7 +882,7 @@ function ViewUsuarios() {
           sub={`${fmt(conDni)} de ${fmt(filteredCount)}`}
           color={T.amber} icon="🪪"/>
       </div>
-
+ 
       {/* Fila 1 */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1.4fr 0.7fr",gap:14,marginBottom:14}}>
         <Card title="Usuarios por Localidad" icon="📍">
@@ -895,7 +890,7 @@ function ViewUsuarios() {
             <HBar key={loc} label={loc} value={val} max={locMax} color={T.accent} total={filteredCount}/>
           ))}
         </Card>
-
+ 
         <Card title="Distribución por Edad (18–100 años)" icon="🎂">
           <div style={{fontSize:10,color:T.muted,marginBottom:12,fontFamily:"'Inter',sans-serif"}}>
             Edades fuera de rango o sin fecha se excluyen.
@@ -907,7 +902,7 @@ function ViewUsuarios() {
           </div>
           <AgeBarChart ranges={porRangoEdad} total={edadesValidas.length}/>
         </Card>
-
+ 
         <div style={{display:"flex",flexDirection:"column",gap:12}}>
           <Card title="Sexo" icon="⚤" style={{flex:1}}>
             {Object.entries(porSexo).map(([s,v]) => (
@@ -926,7 +921,7 @@ function ViewUsuarios() {
           </Card>
         </div>
       </div>
-
+ 
       {/* Fila 2 */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
         <Card title="Categorías Especiales" icon="🏷️">
@@ -937,7 +932,7 @@ function ViewUsuarios() {
               color={colors[i%colors.length]} total={filteredCount}/>;
           })}
         </Card>
-
+ 
         <Card title="Verificación de Identidad (DNI)" icon="🪪">
           <div style={{display:"flex",alignItems:"center",gap:24,marginBottom:16}}>
             <div style={{position:"relative",width:80,height:80,flexShrink:0}}>
@@ -963,7 +958,7 @@ function ViewUsuarios() {
           <HBar label="Sin DNI" value={sinDni} max={filteredCount} color={T.red}   total={filteredCount}/>
         </Card>
       </div>
-
+ 
       {/* Evolución */}
       <Card title="Evolución de Altas" icon="📈" style={{marginBottom:14}}>
         {altasVals.length < 2 ? (
@@ -994,7 +989,7 @@ function ViewUsuarios() {
           </svg>
         )}
       </Card>
-
+ 
       {/* Tabla últimos registrados */}
       <Card title="Últimos Usuarios Registrados" icon="🆕">
         <div style={{overflowX:"auto"}}>
