@@ -1042,7 +1042,7 @@ function ViewUsuarios() {
       </Card>
     </div>
   );
-}
+
 
   // ── FIX 1: Carga paralela ──────────────────────────────────────────────────
 async function cargarUsuarios() {
