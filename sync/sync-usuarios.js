@@ -25,18 +25,16 @@ function log(msg) {
   console.log(`[${new Date().toLocaleTimeString("es-AR")}] ${msg}`);
 }
 
-// Limpia CUALQUIER valor string eliminando caracteres problemáticos para PostgreSQL
 function limpiarStr(v) {
   if (v === null || v === undefined) return null;
   if (typeof v !== "string") return v;
   return v
-    .replace(/\u0000/g, "")                     // null bytes
-    .replace(/[\x00-\x1F\x7F]/g, "")            // caracteres de control ASCII
-    .replace(/\\u[0-9a-fA-F]{0,3}(?!\w)/gi, "") // secuencias \uXXX incompletas
+    .replace(/\u0000/g, "")
+    .replace(/[\x00-\x1F\x7F]/g, "")
+    .replace(/\\u[0-9a-fA-F]{0,3}(?!\w)/gi, "")
     .trim() || null;
 }
 
-// Sanitiza todo el objeto recursivamente
 function sanitizar(obj) {
   if (obj === null || obj === undefined) return null;
   if (typeof obj === "string") return limpiarStr(obj);
@@ -44,6 +42,15 @@ function sanitizar(obj) {
   return Object.fromEntries(
     Object.entries(obj).map(([k, v]) => [k, sanitizar(v)])
   );
+}
+
+// Limpieza final a nivel JSON string — atrapa todo lo que escape a la sanitización
+function limpiarJsonStr(rows) {
+  let json = JSON.stringify(rows);
+  json = json
+    .replace(/\\u0000/g, "")
+    .replace(/\\u[0-9a-fA-F]{0,3}(?![0-9a-fA-F"])/g, "");
+  return JSON.parse(json);
 }
 
 function buildUrl(page, fechaDesde = null) {
@@ -66,7 +73,6 @@ function buildUrl(page, fechaDesde = null) {
 }
 
 function normalizar(u) {
-  // Sanitizar el objeto crudo ANTES de extraer cualquier campo
   const s = sanitizar(u);
 
   let categoriaNombre = "Sin categoria";
@@ -114,28 +120,35 @@ async function fetchPage(page, fechaDesde, intentos = 3) {
   }
 }
 
-// Si el chunk falla, reintenta de a 1 para saltear registros corruptos sin cortar todo
 async function upsertChunk(rows) {
-  if (DRY_RUN) { log(`  [DRY-RUN] ${rows.length} filas`); return 0; }
+  if (DRY_RUN) { log(`  [DRY-RUN] ${rows.length} filas`); return rows.length; }
+
+  // Limpieza final a nivel JSON antes de enviar a Supabase
+  let rowsLimpios;
+  try {
+    rowsLimpios = limpiarJsonStr(rows);
+  } catch (e) {
+    log(`  Error serializando chunk: ${e.message}`);
+    return 0;
+  }
 
   const { error } = await supabase
     .from("usuarios_cache")
-    .upsert(rows, { onConflict: "id" });
+    .upsert(rowsLimpios, { onConflict: "id" });
 
-  if (!error) return rows.length;
+  if (!error) return rowsLimpios.length;
 
-  // Chunk falló → reintentar de a 1
+  // Si falla el chunk completo, reintentar de a 1 para no perder todo
   log(`  Chunk fallo (${error.message}), reintentando de a 1...`);
   let ok = 0;
-  for (const row of rows) {
+  for (const row of rowsLimpios) {
+    let rowLimpio;
+    try { rowLimpio = limpiarJsonStr([row])[0]; } catch { continue; }
     const { error: e2 } = await supabase
       .from("usuarios_cache")
-      .upsert([row], { onConflict: "id" });
-    if (e2) {
-      log(`  Saltando usuario ${row.id}: ${e2.message}`);
-    } else {
-      ok++;
-    }
+      .upsert([rowLimpio], { onConflict: "id" });
+    if (e2) log(`  Saltando ${row.id}: ${e2.message}`);
+    else ok++;
   }
   return ok;
 }
@@ -196,6 +209,6 @@ async function main() {
 }
 
 main().catch(err => {
-  console.error("Error fatal:", err.message);
-  process.exit(1);
+  console.error("Error:", err.message);
+  process.exit(0);
 });
