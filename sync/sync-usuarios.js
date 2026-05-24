@@ -44,7 +44,6 @@ function sanitizar(obj) {
   );
 }
 
-// Limpieza final a nivel JSON string — atrapa todo lo que escape a la sanitización
 function limpiarJsonStr(rows) {
   let json = JSON.stringify(rows);
   json = json
@@ -123,7 +122,6 @@ async function fetchPage(page, fechaDesde, intentos = 3) {
 async function upsertChunk(rows) {
   if (DRY_RUN) { log(`  [DRY-RUN] ${rows.length} filas`); return rows.length; }
 
-  // Limpieza final a nivel JSON antes de enviar a Supabase
   let rowsLimpios;
   try {
     rowsLimpios = limpiarJsonStr(rows);
@@ -138,7 +136,6 @@ async function upsertChunk(rows) {
 
   if (!error) return rowsLimpios.length;
 
-  // Si falla el chunk completo, reintentar de a 1 para no perder todo
   log(`  Chunk fallo (${error.message}), reintentando de a 1...`);
   let ok = 0;
   for (const row of rowsLimpios) {
@@ -166,26 +163,49 @@ async function main() {
   log("Consultando primera pagina...");
   const first = await fetchPage(1, fechaDesde);
   const totalCount = first.totalCount;
-  const totalPages = Math.ceil(totalCount / BATCH_SIZE);
-  log(`Total registros: ${totalCount.toLocaleString()} -> ${totalPages} paginas`);
+  // NOTA: no confiamos en totalCount para el loop — la API puede devolver
+  // un número desactualizado. Paginamos hasta que una página tenga menos
+  // de BATCH_SIZE registros (señal de que es la última).
+  log(`totalCount reportado por API: ${totalCount.toLocaleString()} (referencial, puede estar desactualizado)`);
 
   let allRows = first.datos.map(normalizar);
-  let processed = first.datos.length;
+  let page = 2;
+  let lastPageSize = first.datos.length;
 
-  for (let page = 2; page <= totalPages; page += PARALLEL_REQ) {
-    const batch = [];
-    for (let p = page; p < page + PARALLEL_REQ && p <= totalPages; p++) {
-      batch.push(fetchPage(p, fechaDesde));
+  // Si la primera página ya tiene menos de BATCH_SIZE, no hay más páginas
+  if (lastPageSize < BATCH_SIZE) {
+    log(`Solo 1 pagina (${lastPageSize} registros)`);
+  } else {
+    // Paginar en paralelo hasta que una página devuelva menos de BATCH_SIZE
+    while (true) {
+      const batch = [];
+      for (let p = page; p < page + PARALLEL_REQ; p++) {
+        batch.push(fetchPage(p, fechaDesde));
+      }
+      const results = await Promise.all(batch);
+
+      let done = false;
+      for (const { datos } of results) {
+        allRows.push(...datos.map(normalizar));
+        if (datos.length < BATCH_SIZE) {
+          done = true;
+          break; // última página alcanzada
+        }
+      }
+
+      log(`  Fetched hasta ahora: ${allRows.length.toLocaleString()}`);
+
+      if (done) break;
+      page += PARALLEL_REQ;
     }
-    const results = await Promise.all(batch);
-    for (const { datos } of results) {
-      allRows.push(...datos.map(normalizar));
-      processed += datos.length;
-    }
-    log(`  Fetched: ${processed.toLocaleString()} / ${totalCount.toLocaleString()} (${((processed/totalCount)*100).toFixed(0)}%)`);
   }
 
   log(`Fetch completo: ${allRows.length.toLocaleString()} usuarios normalizados`);
+
+  if (allRows.length > totalCount) {
+    log(`⚠️  La API reportó ${totalCount.toLocaleString()} pero trajimos ${allRows.length.toLocaleString()} — el totalCount estaba desactualizado.`);
+  }
+
   log("Escribiendo en Supabase...");
 
   let written = 0;
