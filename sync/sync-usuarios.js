@@ -56,7 +56,7 @@ function limpiarJsonStr(rows) {
 function buildUrl(page, fechaDesde = null) {
   const filter = fechaDesde
     ? JSON.stringify({ $and: [{ activo: "true" }, { fechaCreacion: { $gte: fechaDesde } }] })
-    : JSON.stringify({ $and: [{ activo: "true" }] });
+    : JSON.stringify({});
 
   const populate = JSON.stringify([
     { path: "cliente", select: "categoriaDefault", populate: { path: "categoriaDefault", select: "nombre" } },
