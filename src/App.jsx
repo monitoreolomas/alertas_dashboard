@@ -641,7 +641,7 @@ function ViewUsuarios() {
         .select("*")
         .eq("activo", true)
         .order("fecha_creacion", { ascending: false })
-        .limit(2000);
+        .limit(50000);
 
       if (userFilters.fechaDesde) {
         query = query.gte("fecha_creacion", userFilters.fechaDesde);
