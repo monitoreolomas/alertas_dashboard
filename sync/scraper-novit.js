@@ -115,10 +115,10 @@ async function main() {
   await page.goto(NOVIT_URL, { waitUntil: "networkidle", timeout: 30000 });
 
   // Esperar explícitamente a que el campo usuario sea visible
-  await page.waitForSelector('input[type="text"], input[placeholder*="suario"]', { timeout: 15000 });
+  await page.waitForSelector('#mat-input-0', { timeout: 15000 });
 
-  await page.fill('input[placeholder*="suario"], input[type="text"]', NOVIT_USER, { timeout: 10000 });
-  await page.fill('input[placeholder*="ontraseña"], input[type="password"]', NOVIT_PASS, { timeout: 10000 });
+  await page.fill('#mat-input-0', NOVIT_USER, { timeout: 10000 });
+  await page.fill('#mat-input-1', NOVIT_PASS, { timeout: 10000 });
   await page.click('button:has-text("Ingresar")');
 
   await page.waitForURL(/\#\/(dashboard|home|inicio)/, { timeout: 15000 }).catch(() => {});
