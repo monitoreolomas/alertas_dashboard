@@ -43,9 +43,18 @@ function generarId(nombre, fechaCreacion) {
 }
 
 function normalizarFila(row) {
-  const fechaCreacion = row["Fecha de registro"]
-    ? new Date(row["Fecha de registro"]).toISOString()
-    : null;
+  let fechaCreacion = null;
+  try {
+    if (row["Fecha de registro"]) {
+      // Formato DD/MM/YYYY o DD/MM/YYYY HH:MM:SS
+      const parts = String(row["Fecha de registro"]).split(/[\/ :]/);
+      if (parts.length >= 3) {
+        const d = new Date(parts[2], parts[1]-1, parts[0],
+          parts[3]||0, parts[4]||0, parts[5]||0);
+        if (!isNaN(d.getTime())) fechaCreacion = d.toISOString();
+      }
+    }
+  } catch(e) {}
 
   const nombreCompleto = limpiarStr(row["Nombre"]) || "";
   const partes = nombreCompleto.split(" ").filter(Boolean);
@@ -61,9 +70,17 @@ function normalizarFila(row) {
     nombre,
     apellido,
     sexo:                limpiarStr(row["Sexo"]),
-    fecha_nacimiento:    row["Fecha de Nacimiento"]
-                           ? new Date(row["Fecha de Nacimiento"]).toISOString().slice(0, 10)
-                           : null,
+    fecha_nacimiento:    (() => {
+      try {
+        if (!row["Fecha de Nacimiento"]) return null;
+        const parts = String(row["Fecha de Nacimiento"]).split(/[\/ :]/);
+        if (parts.length >= 3) {
+          const d = new Date(parts[2], parts[1]-1, parts[0]);
+          return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+        }
+        return null;
+      } catch(e) { return null; }
+    })(),
     dni_escaneado:       false,
     categoria_nombre:    limpiarStr(row["Categoria"]) || "Sin categoria",
     localidad:           limpiarStr(row["Localidad"]),
