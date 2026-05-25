@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { chromium } from "playwright";
 import { createClient } from "@supabase/supabase-js";
-import * as XLSX from "xlsx";
+import { readFile, utils } from "xlsx";
 import crypto from "crypto";
 import path from "path";
 import fs from "fs";
@@ -199,9 +199,9 @@ async function main() {
 
   // ── PROCESAR EXCEL ─────────────────────────────────────────────────────────
   log("Procesando Excel...");
-  const wb = XLSX.readFile(xlsPath);
+  const wb = readFile(xlsPath);
   const ws = wb.Sheets[wb.SheetNames[0]];
-  const rawRows = XLSX.utils.sheet_to_json(ws, { defval: null });
+  const rawRows = utils.sheet_to_json(ws, { defval: null });
   log(`Filas en Excel: ${rawRows.length.toLocaleString()}`);
 
   const rows = rawRows.map(normalizarFila);
