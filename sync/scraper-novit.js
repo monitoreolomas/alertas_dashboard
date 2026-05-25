@@ -140,6 +140,9 @@ async function main() {
 
   // ── NAVEGAR A CONFIGURACIÓN > VECINOS ──────────────────────────────────────
   log("Navegando a Configuración...");
+  // Esperar a que todos los overlays/backdrops desaparezcan
+  await page.waitForSelector(".cdk-overlay-backdrop", { state: "hidden", timeout: 10000 }).catch(() => {});
+  await page.waitForTimeout(500);
   await page.click('text=Configuración');
   await page.waitForTimeout(1000);
 
