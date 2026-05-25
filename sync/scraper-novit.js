@@ -163,20 +163,33 @@ async function main() {
 
   // ── DESCARGAR XLS ──────────────────────────────────────────────────────────
   log("Descargando XLS...");
-  const [download] = await Promise.all([
-    page.waitForEvent("download"),
-    page.evaluate(() => {
-      const btns = document.querySelectorAll('button');
-      for (const btn of btns) {
-        if (btn.textContent.includes('XLS') && btn.getAttribute('mattooltip') === 'Exportar') {
-          btn.click(); return;
-        }
+
+  // Clickear el botón XLS (abre el diálogo de confirmación)
+  await page.evaluate(() => {
+    const btns = document.querySelectorAll('button');
+    for (const btn of btns) {
+      if (btn.textContent.includes('XLS') && btn.getAttribute('mattooltip') === 'Exportar') {
+        btn.click(); return;
       }
-      for (const btn of btns) {
-        if (btn.textContent.includes('XLS')) { btn.click(); return; }
-      }
-    }),
-  ]);
+    }
+    for (const btn of btns) {
+      if (btn.textContent.includes('XLS')) { btn.click(); return; }
+    }
+  });
+
+  // Esperar y cerrar el diálogo de confirmación
+  log("Esperando diálogo de confirmación...");
+  await page.waitForTimeout(1500);
+  await page.evaluate(() => {
+    const btns = document.querySelectorAll('button');
+    for (const btn of btns) {
+      if (btn.textContent.trim() === 'Aceptar') { btn.click(); return; }
+    }
+  });
+  log("Diálogo aceptado, esperando descarga...");
+
+  // Ahora sí esperar la descarga
+  const download = await page.waitForEvent("download", { timeout: 60000 });
 
   const xlsPath = path.join(downloadDir, "vecinos.xlsx");
   await download.saveAs(xlsPath);
