@@ -1,0 +1,35 @@
+name: Scraper Novit (XLS)
+
+on:
+  schedule:
+    - cron: "0 6 * * *"   # todos los días a las 06:00 UTC (03:00 Argentina)
+  workflow_dispatch:        # también permite correrlo manualmente
+
+jobs:
+  scraper:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Instalar Playwright browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: Correr scraper
+        env:
+          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          NOVIT_USER:           ${{ secrets.NOVIT_USER }}
+          NOVIT_PASS:           ${{ secrets.NOVIT_PASS }}
+        run: node sync/scraper-novit.js
