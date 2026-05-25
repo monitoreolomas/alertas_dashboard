@@ -52,10 +52,22 @@ function limpiarJsonStr(rows) {
   return JSON.parse(json);
 }
 
-function buildUrl(page, fechaDesde = null) {
-  const filter = fechaDesde
-    ? JSON.stringify({ $and: [{ activo: "true" }, { fechaCreacion: { $gte: fechaDesde } }] })
-    : JSON.stringify({});
+// appType: "ios" | "android" | "web" | null | undefined
+// - undefined = sin filtro de appType (modo incremental)
+// - null      = usuarios sin appType
+// - string    = usuarios con ese appType
+function buildUrl(page, fechaDesde = null, appType = undefined) {
+  let filterObj = {};
+
+  if (fechaDesde) {
+    filterObj = { $and: [{ activo: "true" }, { fechaCreacion: { $gte: fechaDesde } }] };
+  }
+
+  if (appType !== undefined) {
+    filterObj.appType = appType; // null o "ios"/"android"/"web"
+  }
+
+  const filter = JSON.stringify(filterObj);
 
   const populate = JSON.stringify([
     { path: "cliente", select: "categoriaDefault", populate: { path: "categoriaDefault", select: "nombre" } },
@@ -94,7 +106,7 @@ function normalizar(u) {
     categoria_nombre:    limpiarStr(categoriaNombre),
     localidad:           limpiarStr(s?.direccion?.localidad?.nombre || s?.localidad),
     barrio:              limpiarStr(s?.direccion?.barrio?.nombre),
-    app_type:            limpiarStr(s?.appType),
+    app_type:            limpiarStr(s?.appType),   // "ios" | "android" | "web" | null
     activo:              s?.activo === true || s?.activo === "true",
     fecha_creacion:      s?.fechaCreacion || null,
     fecha_actualizacion: s?.fechaActualizacion || s?.updatedAt || null,
@@ -102,8 +114,8 @@ function normalizar(u) {
   };
 }
 
-async function fetchPage(page, fechaDesde, intentos = 3) {
-  const url = buildUrl(page, fechaDesde);
+async function fetchPage(page, fechaDesde, appType, intentos = 3) {
+  const url = buildUrl(page, fechaDesde, appType);
   const headers = { Authorization: `Bearer ${NOVIT_TOKEN}` };
   for (let i = 0; i < intentos; i++) {
     try {
@@ -150,75 +162,73 @@ async function upsertChunk(rows) {
   return ok;
 }
 
-async function main() {
-  const t0 = Date.now();
-  log(`Iniciando sync ${FULL_SYNC ? "COMPLETO" : "INCREMENTAL"}${DRY_RUN ? " (DRY-RUN)" : ""}`);
+// Trae y escribe todos los usuarios para un filtro dado
+async function syncGrupo(fechaDesde, appType) {
+  const label = appType === undefined ? "todos"
+              : appType === null      ? "sin app"
+              : appType;
 
-  const fechaDesde = FULL_SYNC
-    ? null
-    : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  log(`── Grupo: ${label} ──`);
 
-  if (fechaDesde) log(`Filtrando desde: ${fechaDesde.slice(0, 10)}`);
-
-  log("Consultando primera pagina...");
-  const first = await fetchPage(1, fechaDesde);
-  const totalCount = first.totalCount;
-  // NOTA: no confiamos en totalCount para el loop — la API puede devolver
-  // un número desactualizado. Paginamos hasta que una página tenga menos
-  // de BATCH_SIZE registros (señal de que es la última).
-  log(`totalCount reportado por API: ${totalCount.toLocaleString()} (referencial, puede estar desactualizado)`);
+  const first = await fetchPage(1, fechaDesde, appType);
+  log(`  totalCount API: ${first.totalCount.toLocaleString()}`);
 
   let allRows = first.datos.map(normalizar);
   let page = 2;
-  let lastPageSize = first.datos.length;
 
-  // Si la primera página ya tiene menos de BATCH_SIZE, no hay más páginas
-  if (lastPageSize < BATCH_SIZE) {
-    log(`Solo 1 pagina (${lastPageSize} registros)`);
-  } else {
-    // Paginar en paralelo hasta que una página devuelva menos de BATCH_SIZE
+  if (first.datos.length >= BATCH_SIZE) {
     while (true) {
       const batch = [];
       for (let p = page; p < page + PARALLEL_REQ; p++) {
-        batch.push(fetchPage(p, fechaDesde));
+        batch.push(fetchPage(p, fechaDesde, appType));
       }
       const results = await Promise.all(batch);
 
       let done = false;
       for (const { datos } of results) {
         allRows.push(...datos.map(normalizar));
-        if (datos.length < BATCH_SIZE) {
-          done = true;
-          break; // última página alcanzada
-        }
+        if (datos.length < BATCH_SIZE) { done = true; break; }
       }
 
-      log(`  Fetched hasta ahora: ${allRows.length.toLocaleString()}`);
-
+      log(`  Fetched: ${allRows.length.toLocaleString()}`);
       if (done) break;
       page += PARALLEL_REQ;
     }
   }
 
-  log(`Fetch completo: ${allRows.length.toLocaleString()} usuarios normalizados`);
-
-  if (allRows.length > totalCount) {
-    log(`⚠️  La API reportó ${totalCount.toLocaleString()} pero trajimos ${allRows.length.toLocaleString()} — el totalCount estaba desactualizado.`);
-  }
-
-  log("Escribiendo en Supabase...");
+  log(`  Total traídos: ${allRows.length.toLocaleString()}`);
 
   let written = 0;
   for (let i = 0; i < allRows.length; i += UPSERT_CHUNK) {
     const chunk = allRows.slice(i, i + UPSERT_CHUNK);
     written += await upsertChunk(chunk);
-    if (written % 1000 === 0 || i + UPSERT_CHUNK >= allRows.length) {
-      log(`  Upserted: ${written.toLocaleString()} / ${allRows.length.toLocaleString()}`);
+  }
+
+  log(`  Escritos: ${written.toLocaleString()}`);
+  return written;
+}
+
+async function main() {
+  const t0 = Date.now();
+  log(`Iniciando sync ${FULL_SYNC ? "COMPLETO" : "INCREMENTAL"}${DRY_RUN ? " (DRY-RUN)" : ""}`);
+
+  let totalWritten = 0;
+
+  if (FULL_SYNC) {
+    // Full sync: 4 grupos por appType para no superar el límite de la API
+    // ios (~4k) + android (~29k) + web (~2) + null (~2k) = todos sin truncar
+    for (const appType of ["ios", "android", "web", null]) {
+      totalWritten += await syncGrupo(null, appType);
     }
+  } else {
+    // Incremental: últimos 7 días, sin split por appType (volumen bajo)
+    const fechaDesde = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    log(`Filtrando desde: ${fechaDesde.slice(0, 10)}`);
+    totalWritten += await syncGrupo(fechaDesde, undefined);
   }
 
   const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
-  log(`Sync completado en ${elapsed}s · ${written.toLocaleString()} usuarios escritos`);
+  log(`Sync completado en ${elapsed}s · ${totalWritten.toLocaleString()} usuarios escritos`);
 
   if (!DRY_RUN) {
     const { data: resumen } = await supabase.from("v_usuarios_resumen").select("*").single();
