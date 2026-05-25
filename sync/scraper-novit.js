@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import { chromium } from "playwright";
 import { createClient } from "@supabase/supabase-js";
-import { readFile, utils } from "xlsx";
+import pkg from "xlsx";
+const { readFile, utils } = pkg;
 import crypto from "crypto";
 import path from "path";
 import fs from "fs";
