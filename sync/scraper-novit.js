@@ -121,20 +121,20 @@ async function descargarXLS() {
     xls?.click();
   });
 
-  // Confirmar diálogo
+  // Confirmar diálogo — registrar listener ANTES de hacer click
   log("Esperando diálogo de confirmación...");
   await page.waitForTimeout(1500);
+
+  const downloadPromise = page.waitForEvent("download", { timeout: 90000 });
+
   await page.evaluate(() => {
     const btns = [...document.querySelectorAll("button")];
     const ok   = btns.find(b => /aceptar/i.test(b.textContent));
     ok?.click();
   });
+  log("Diálogo aceptado, esperando descarga...");
 
-  // Esperar descarga
-  log("Esperando descarga...");
-  const [download] = await Promise.all([
-    page.waitForEvent("download", { timeout: 90000 }),
-  ]);
+  const download = await downloadPromise;
   const filePath = path.join(downloadDir, "vecinos.xlsx");
   await download.saveAs(filePath);
   await browser.close();
