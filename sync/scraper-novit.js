@@ -165,7 +165,17 @@ async function main() {
   log("Descargando XLS...");
   const [download] = await Promise.all([
     page.waitForEvent("download"),
-    page.click('button:has-text("XLS"), .xls-btn, [title="XLS"]'),
+    page.evaluate(() => {
+      const btns = document.querySelectorAll('button');
+      for (const btn of btns) {
+        if (btn.textContent.includes('XLS') && btn.getAttribute('mattooltip') === 'Exportar') {
+          btn.click(); return;
+        }
+      }
+      for (const btn of btns) {
+        if (btn.textContent.includes('XLS')) { btn.click(); return; }
+      }
+    }),
   ]);
 
   const xlsPath = path.join(downloadDir, "vecinos.xlsx");
