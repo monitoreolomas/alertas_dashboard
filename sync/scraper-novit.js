@@ -1,256 +1,218 @@
 #!/usr/bin/env node
 import { chromium } from "playwright";
 import { createClient } from "@supabase/supabase-js";
-import pkg from "xlsx";
-const { readFile, utils } = pkg;
 import crypto from "crypto";
 import path from "path";
 import fs from "fs";
 import "dotenv/config";
-import { WebSocket } from "ws";
+import pkg from "xlsx";
+const { readFile, utils } = pkg;
 
-const SUPABASE_URL  = process.env.SUPABASE_URL;
-const SUPABASE_KEY  = process.env.SUPABASE_SERVICE_KEY;
-const NOVIT_USER    = process.env.NOVIT_USER;
-const NOVIT_PASS    = process.env.NOVIT_PASS;
-const NOVIT_URL     = "https://monitoreo.grupocontrol.ar/#/login";
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
+const NOVIT_USER   = process.env.NOVIT_USER;
+const NOVIT_PASS   = process.env.NOVIT_PASS;
 
-const UPSERT_CHUNK  = 200;
-const DRY_RUN       = process.argv.includes("--dry-run");
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-if (!SUPABASE_URL || !SUPABASE_KEY || !NOVIT_USER || !NOVIT_PASS) {
-  console.error("Faltan variables de entorno: SUPABASE_URL, SUPABASE_SERVICE_KEY, NOVIT_USER, NOVIT_PASS");
-  process.exit(1);
+const log = (...args) => console.log(`[${new Date().toTimeString().slice(0,8)}]`, ...args);
+
+// ---------- helpers ----------
+
+function parseFecha(str) {
+  if (!str) return null;
+  const s = String(str).trim();
+  // DD/MM/YYYY o DD/MM/YYYY HH:MM:SS
+  const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})(?: (\d{2}):(\d{2}):(\d{2}))?/);
+  if (!m) return null;
+  const [, dd, mm, yyyy, hh = "00", mi = "00", ss = "00"] = m;
+  const d = new Date(`${yyyy}-${mm}-${dd}T${hh}:${mi}:${ss}`);
+  return isNaN(d.getTime()) ? null : d.toISOString();
 }
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, { global: { WebSocket } });
-
-function log(msg) {
-  console.log(`[${new Date().toLocaleTimeString("es-AR")}] ${msg}`);
-}
-
-function limpiarStr(v) {
-  if (v === null || v === undefined) return null;
-  const s = String(v).replace(/\u0000/g, "").replace(/[\x00-\x1F\x7F]/g, "").trim();
-  return s || null;
-}
-
-// Genera un id determinístico a partir de nombre + fecha de registro.
-// Mismo usuario siempre genera el mismo id → upsert sin duplicados.
-function generarId(nombre, fechaCreacion) {
-  const base = `${(nombre || "").trim().toLowerCase()}|${fechaCreacion || ""}`;
+function generarId(nombre, fechaCreacion, dni) {
+  const base = `${String(nombre ?? "").trim().toLowerCase()}|${fechaCreacion ?? ""}|${dni ?? ""}`;
   return crypto.createHash("md5").update(base).digest("hex").slice(0, 24);
 }
 
-function normalizarFila(row) {
-  let fechaCreacion = null;
-  try {
-    if (row["Fecha de registro"]) {
-      // Formato DD/MM/YYYY o DD/MM/YYYY HH:MM:SS
-      const parts = String(row["Fecha de registro"]).split(/[\/ :]/);
-      if (parts.length >= 3) {
-        const d = new Date(parts[2], parts[1]-1, parts[0],
-          parts[3]||0, parts[4]||0, parts[5]||0);
-        if (!isNaN(d.getTime())) fechaCreacion = d.toISOString();
-      }
-    }
-  } catch(e) {}
+function normalizar(row) {
+  const nombreCompleto = String(row["Nombre"] ?? "").trim();
+  // Primera palabra = apellido, resto = nombre (convención argentina)
+  const partes = nombreCompleto.split(/\s+/);
+  const apellido = partes[0] ?? null;
+  const nombre   = partes.slice(1).join(" ") || null;
 
-  const nombreCompleto = limpiarStr(row["Nombre"]) || "";
-  const partes = nombreCompleto.split(" ").filter(Boolean);
-  // El XLS trae "APELLIDO Nombre(s)" — primer token es apellido
-  const apellido = partes[0] || null;
-  const nombre   = partes.slice(1).join(" ") || nombreCompleto;
-
-  const id = generarId(nombreCompleto, fechaCreacion);
+  const fechaCreacion  = parseFecha(row["Fecha de registro"]);
+  const fechaNacimiento = parseFecha(row["Fecha de Nacimiento"]);
+  const dni = row["DNI"] ? String(row["DNI"]).trim() : null;
 
   return {
-    id,
-    usuario:             limpiarStr(row["Email"]),   // puede ser null
+    id:               generarId(nombreCompleto, fechaCreacion, dni),
+    usuario:          row["Email"] ? String(row["Email"]).trim() : null,
     nombre,
     apellido,
-    sexo:                limpiarStr(row["Sexo"]),
-    fecha_nacimiento:    (() => {
-      try {
-        if (!row["Fecha de Nacimiento"]) return null;
-        const parts = String(row["Fecha de Nacimiento"]).split(/[\/ :]/);
-        if (parts.length >= 3) {
-          const d = new Date(parts[2], parts[1]-1, parts[0]);
-          return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
-        }
-        return null;
-      } catch(e) { return null; }
-    })(),
-    dni_escaneado:       false,
-    categoria_nombre:    limpiarStr(row["Categoria"]) || "Sin categoria",
-    localidad:           limpiarStr(row["Localidad"]),
-    barrio:              limpiarStr(row["Barrio"]),
-    app_type:            null,
-    activo:              String(row["Activo"]).toLowerCase() === "si" ||
-                         String(row["Activo"]).toLowerCase() === "true" ||
-                         row["Activo"] === true,
-    fecha_creacion:      fechaCreacion,
-    fecha_actualizacion: null,
-    synced_at:           new Date().toISOString(),
+    sexo:             row["Sexo"]   ? String(row["Sexo"]).trim()   : null,
+    fecha_nacimiento: fechaNacimiento ? fechaNacimiento.slice(0, 10) : null,  // solo fecha
+    dni_escaneado:    !!dni,            // true si tiene DNI cargado
+    categoria_nombre: row["Categoria"] ? String(row["Categoria"]).trim() : null,
+    localidad:        row["Localidad"] ? String(row["Localidad"]).trim() : null,
+    barrio:           row["Barrio"]    ? String(row["Barrio"]).trim()    : null,
+    activo:           String(row["Activo"] ?? "").trim().toLowerCase() === "sí" || 
+                      String(row["Activo"] ?? "").trim().toLowerCase() === "si",
+    fecha_creacion:   fechaCreacion,
   };
 }
 
-async function upsertChunk(rows) {
-  if (DRY_RUN) { log(`  [DRY-RUN] ${rows.length} filas`); return rows.length; }
+// ---------- scraping ----------
 
-  const { error } = await supabase
-    .from("usuarios_cache")
-    .upsert(rows, { onConflict: "id" });  // upsert por id determinístico
-
-  if (!error) return rows.length;
-
-  log(`  Chunk fallo (${error.message}), reintentando de a 1...`);
-  let ok = 0;
-  for (const row of rows) {
-    const { error: e2 } = await supabase
-      .from("usuarios_cache")
-      .upsert([row], { onConflict: "id" });
-    if (e2) log(`  Saltando ${row.id}: ${e2.message}`);
-    else ok++;
-  }
-  return ok;
-}
-
-async function main() {
-  const t0 = Date.now();
-  log(`Iniciando scraper Novit${DRY_RUN ? " (DRY-RUN)" : ""}`);
-
-  const downloadDir = path.resolve("./downloads");
-  if (!fs.existsSync(downloadDir)) fs.mkdirSync(downloadDir);
-  fs.readdirSync(downloadDir).forEach(f => fs.unlinkSync(path.join(downloadDir, f)));
+async function descargarXLS() {
+  const downloadDir = path.resolve("downloads");
+  fs.mkdirSync(downloadDir, { recursive: true });
 
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ acceptDownloads: true });
-  const page = await context.newPage();
+  const page    = await context.newPage();
 
-  // ── LOGIN ──────────────────────────────────────────────────────────────────
   log("Navegando al login...");
-  await page.goto(NOVIT_URL, { waitUntil: "networkidle", timeout: 30000 });
+  await page.goto("https://monitoreo.grupocontrol.ar/#/login", { waitUntil: "networkidle" });
 
-  // Esperar explícitamente a que el campo usuario sea visible
-  await page.waitForSelector('#mat-input-0', { timeout: 15000 });
-
-  await page.fill('#mat-input-0', NOVIT_USER, { timeout: 10000 });
-  await page.fill('#mat-input-1', NOVIT_PASS, { timeout: 10000 });
-  await page.click('button:has-text("Ingresar")');
-
-  await page.waitForURL(/\#\/(dashboard|home|inicio)/, { timeout: 15000 }).catch(() => {});
+  await page.waitForSelector("#mat-input-0", { timeout: 15000 });
+  await page.fill("#mat-input-0", NOVIT_USER);
+  await page.fill("#mat-input-1", NOVIT_PASS);
+  await page.click("button[type=submit]");
+  await page.waitForTimeout(3000);
   log("Login OK");
 
-  // ── CERRAR POPUPS ──────────────────────────────────────────────────────────
+  // Cerrar popups (puede haber 1 o 2)
   log("Cerrando popups...");
-  for (let i = 0; i < 3; i++) {
+  for (let i = 1; i <= 2; i++) {
     try {
-      const btn = page.locator('button:has-text("Aceptar")').first();
-      await btn.waitFor({ timeout: 3000 });
+      const btn = page.locator("button:has-text('Aceptar'), button:has-text('ACEPTAR'), button:has-text('Cerrar')").first();
+      await btn.waitFor({ timeout: 4000 });
       await btn.click();
-      log(`  Popup ${i + 1} cerrado`);
-      await page.waitForTimeout(500);
+      log(`  Popup ${i} cerrado`);
+      await page.waitForTimeout(1000);
     } catch {
       break;
     }
   }
 
-  // ── NAVEGAR A CONFIGURACIÓN > VECINOS ──────────────────────────────────────
+  // Configuración
   log("Navegando a Configuración...");
-  // Esperar a que todos los overlays/backdrops desaparezcan
-  await page.waitForSelector(".cdk-overlay-backdrop", { state: "hidden", timeout: 10000 }).catch(() => {});
-  await page.waitForTimeout(500);
-  // Click via JS para evitar que el cdk-overlay-backdrop bloquee
   await page.evaluate(() => {
-    const els = document.querySelectorAll("p, span, a");
-    for (const el of els) {
-      if (el.textContent.trim() === "Configuración") { el.click(); break; }
-    }
-  });
-  await page.waitForTimeout(1000);
-
-  log("Navegando a Vecinos...");
-  await page.evaluate(() => {
-    const els = document.querySelectorAll("p, span, a, mat-list-item");
-    for (const el of els) {
-      if (el.textContent.trim() === "Vecinos") { el.click(); break; }
-    }
+    const el = [...document.querySelectorAll("span")].find(e => e.textContent.trim() === "Configuración");
+    el?.click();
   });
   await page.waitForTimeout(2000);
 
-  // ── DESCARGAR XLS ──────────────────────────────────────────────────────────
-  log("Descargando XLS...");
-
-  // Clickear el botón XLS (abre el diálogo de confirmación)
+  // Vecinos
+  log("Navegando a Vecinos...");
   await page.evaluate(() => {
-    const btns = document.querySelectorAll('button');
-    for (const btn of btns) {
-      if (btn.textContent.includes('XLS') && btn.getAttribute('mattooltip') === 'Exportar') {
-        btn.click(); return;
-      }
-    }
-    for (const btn of btns) {
-      if (btn.textContent.includes('XLS')) { btn.click(); return; }
-    }
+    const el = [...document.querySelectorAll("span, a")].find(e => e.textContent.trim() === "Vecinos");
+    el?.click();
+  });
+  await page.waitForTimeout(3000);
+
+  // Click XLS
+  log("Descargando XLS...");
+  await page.evaluate(() => {
+    const btns = [...document.querySelectorAll("button")];
+    const xls  = btns.find(b => b.textContent.includes("XLS"));
+    xls?.click();
   });
 
-  // Esperar y cerrar el diálogo de confirmación
+  // Confirmar diálogo
   log("Esperando diálogo de confirmación...");
   await page.waitForTimeout(1500);
   await page.evaluate(() => {
-    const btns = document.querySelectorAll('button');
-    for (const btn of btns) {
-      if (btn.textContent.trim() === 'Aceptar') { btn.click(); return; }
-    }
+    const btns = [...document.querySelectorAll("button")];
+    const ok   = btns.find(b => /aceptar/i.test(b.textContent));
+    ok?.click();
   });
-  log("Diálogo aceptado, esperando descarga...");
 
-  // Ahora sí esperar la descarga
-  const download = await page.waitForEvent("download", { timeout: 60000 });
-
-  const xlsPath = path.join(downloadDir, "vecinos.xlsx");
-  await download.saveAs(xlsPath);
-  log(`XLS guardado en ${xlsPath}`);
-
+  // Esperar descarga
+  log("Esperando descarga...");
+  const [download] = await Promise.all([
+    page.waitForEvent("download", { timeout: 90000 }),
+  ]);
+  const filePath = path.join(downloadDir, "vecinos.xlsx");
+  await download.saveAs(filePath);
   await browser.close();
 
-  // ── PROCESAR EXCEL ─────────────────────────────────────────────────────────
-  log("Procesando Excel...");
-  const wb = readFile(xlsPath);
-  const ws = wb.Sheets[wb.SheetNames[0]];
-  const rawRows = utils.sheet_to_json(ws, { defval: null });
-  log(`Filas en Excel: ${rawRows.length.toLocaleString()}`);
-
-  const rows = rawRows.map(normalizarFila);
-  const sinId = rows.filter(r => !r.id).length;
-  if (sinId > 0) log(`  Advertencia: ${sinId} filas sin id (nombre+fecha vacíos), se omiten`);
-
-  const rowsValidos = rows.filter(r => r.id);
-  log(`Filas a escribir: ${rowsValidos.length.toLocaleString()}`);
-  log("Escribiendo en Supabase...");
-
-  let written = 0;
-  for (let i = 0; i < rowsValidos.length; i += UPSERT_CHUNK) {
-    const chunk = rowsValidos.slice(i, i + UPSERT_CHUNK);
-    written += await upsertChunk(chunk);
-    if (written % 2000 === 0 || i + UPSERT_CHUNK >= rowsValidos.length) {
-      log(`  Upserted: ${written.toLocaleString()} / ${rowsValidos.length.toLocaleString()}`);
-    }
-  }
-
-  const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
-  log(`Scraper completado en ${elapsed}s · ${written.toLocaleString()} filas escritas`);
-
-  if (!DRY_RUN) {
-    const { data: resumen } = await supabase.from("v_usuarios_resumen").select("*").single();
-    if (resumen) {
-      log(`Estado tabla: Total=${Number(resumen.total).toLocaleString()} · Activos=${Number(resumen.activos).toLocaleString()} · Con DNI=${Number(resumen.con_dni).toLocaleString()}`);
-    }
-  }
+  log(`XLS guardado en ${filePath}`);
+  return filePath;
 }
 
-main().catch(err => {
-  console.error("Error:", err.message);
-  process.exit(1);
-});
+// ---------- upsert ----------
+
+async function upsertChunk(rows) {
+  const { error } = await supabase
+    .from("usuarios_cache")
+    .upsert(rows, { onConflict: "id" });
+  return error;
+}
+
+async function escribirSupabase(rows) {
+  const CHUNK = 500;
+  let escritos = 0;
+
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const chunk = rows.slice(i, i + CHUNK);
+
+    // Deduplicar por id dentro del chunk (evita ON CONFLICT doble)
+    const seen   = new Set();
+    const unique = chunk.filter(r => {
+      if (seen.has(r.id)) return false;
+      seen.add(r.id);
+      return true;
+    });
+
+    let error = await upsertChunk(unique);
+
+    if (error) {
+      // Reintentar de a 1
+      log(`  Chunk falló (${error.message}), reintentando de a 1...`);
+      for (const row of unique) {
+        const e2 = await upsertChunk([row]);
+        if (e2) log(`  Saltando ${row.id}: ${e2.message}`);
+        else escritos++;
+      }
+    } else {
+      escritos += unique.length;
+    }
+
+    log(`  Upserted: ${escritos.toLocaleString()} / ${rows.length.toLocaleString()}`);
+  }
+
+  return escritos;
+}
+
+// ---------- main ----------
+
+async function main() {
+  log("Iniciando scraper Novit");
+
+  const filePath = await descargarXLS();
+
+  log("Procesando Excel...");
+  const wb    = readFile(filePath);
+  const ws    = wb.Sheets[wb.SheetNames[0]];
+  const data  = utils.sheet_to_json(ws);
+  log(`Filas en Excel: ${data.length.toLocaleString()}`);
+
+  const rows = data.map(normalizar);
+  log(`Filas a escribir: ${rows.length.toLocaleString()}`);
+
+  log("Escribiendo en Supabase...");
+  const total = await escribirSupabase(rows);
+
+  log(`Sync completado · ${total.toLocaleString()} usuarios escritos`);
+
+  // Verificación final
+  const { count } = await supabase
+    .from("usuarios_cache")
+    .select("*", { count: "exact", head: true });
+  log(`Estado tabla: Total=${count?.toLocaleString()}`);
+}
+
+main().catch(err => { console.error(err); process.exit(1); });
