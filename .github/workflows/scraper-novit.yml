@@ -8,7 +8,7 @@ on:
 jobs:
   scraper:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
 
     steps:
       - name: Checkout repo
@@ -19,16 +19,30 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Instalar dependencias
+      # ── PASO 1: Scraper XLS (Playwright) ───────────────────────────────────
+      - name: Instalar dependencias (raíz)
         run: npm install
 
       - name: Instalar Playwright browsers
         run: npx playwright install chromium --with-deps
 
       - name: Correr scraper
+        run: node sync/scraper-novit.js
         env:
           SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           NOVIT_USER:           ${{ secrets.NOVIT_USER }}
           NOVIT_PASS:           ${{ secrets.NOVIT_PASS }}
-        run: node sync/scraper-novit.js
+
+      # ── PASO 2: Sync API (escribe app_type por grupo) ──────────────────────
+      - name: Instalar dependencias (sync)
+        run: npm install
+        working-directory: sync
+
+      - name: Correr sync full (app_type)
+        run: node sync-usuarios.js --full
+        working-directory: sync
+        env:
+          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          NOVIT_TOKEN:          ${{ secrets.NOVIT_TOKEN }}
