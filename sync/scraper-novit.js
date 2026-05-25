@@ -6,6 +6,7 @@ import crypto from "crypto";
 import path from "path";
 import fs from "fs";
 import "dotenv/config";
+import { WebSocket } from "ws";
 
 const SUPABASE_URL  = process.env.SUPABASE_URL;
 const SUPABASE_KEY  = process.env.SUPABASE_SERVICE_KEY;
@@ -21,7 +22,7 @@ if (!SUPABASE_URL || !SUPABASE_KEY || !NOVIT_USER || !NOVIT_PASS) {
   process.exit(1);
 }
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, { global: { WebSocket } });
 
 function log(msg) {
   console.log(`[${new Date().toLocaleTimeString("es-AR")}] ${msg}`);
