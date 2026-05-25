@@ -143,11 +143,22 @@ async function main() {
   // Esperar a que todos los overlays/backdrops desaparezcan
   await page.waitForSelector(".cdk-overlay-backdrop", { state: "hidden", timeout: 10000 }).catch(() => {});
   await page.waitForTimeout(500);
-  await page.click('text=Configuración');
+  // Click via JS para evitar que el cdk-overlay-backdrop bloquee
+  await page.evaluate(() => {
+    const els = document.querySelectorAll("p, span, a");
+    for (const el of els) {
+      if (el.textContent.trim() === "Configuración") { el.click(); break; }
+    }
+  });
   await page.waitForTimeout(1000);
 
   log("Navegando a Vecinos...");
-  await page.click('text=Vecinos');
+  await page.evaluate(() => {
+    const els = document.querySelectorAll("p, span, a, mat-list-item");
+    for (const el of els) {
+      if (el.textContent.trim() === "Vecinos") { el.click(); break; }
+    }
+  });
   await page.waitForTimeout(2000);
 
   // ── DESCARGAR XLS ──────────────────────────────────────────────────────────
