@@ -732,7 +732,7 @@ function ViewUsuarios() {
   // ── Métricas sobre TODOS los activos (sin filtro fecha) ───────────────────
   const edadesValidas = useMemo(() =>
     filtradosNorm.map(u => u.edad).filter(e => e != null && !isNaN(e) && e >= 18 && e <= 100),
-    [todosNorm]
+    [filtradosNorm]
   );
   const edadProm = edadesValidas.length
     ? (edadesValidas.reduce((a,b)=>a+b,0) / edadesValidas.length).toFixed(1)
@@ -750,7 +750,7 @@ function ViewUsuarios() {
     const acc = {};
     filtradosNorm.forEach(u => { acc[u.sexo] = (acc[u.sexo] || 0) + 1; });
     return acc;
-  }, [todosNorm]);
+  }, [filtradosNorm]);
   const sexoColors = { "Masculino":"#38bdf8", "Femenino":"#f472b6", "Sin dato":T.muted };
   const sexoMaxVal = Math.max(...Object.values(porSexo), 1);
 
@@ -759,7 +759,7 @@ function ViewUsuarios() {
     const acc = {};
     filtradosNorm.forEach(u => { acc[u.plataforma] = (acc[u.plataforma] || 0) + 1; });
     return acc;
-  }, [todosNorm]);
+  }, [filtradosNorm]);
   const platMaxVal = Math.max(...Object.values(porPlataforma), 1);
 
   // Localidad — sobre universo completo
@@ -767,7 +767,7 @@ function ViewUsuarios() {
     const acc = {};
     filtradosNorm.forEach(u => { acc[u.localidadNombre] = (acc[u.localidadNombre] || 0) + 1; });
     return acc;
-  }, [todosNorm]);
+  }, [filtradosNorm]);
   const topLocalidades = topN(porLocalidad, 10);
   const locMax = Math.max(...topLocalidades.map(([,v])=>v), 1);
 
