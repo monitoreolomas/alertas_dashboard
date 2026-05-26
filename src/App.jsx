@@ -1,8 +1,7 @@
 import { useState, useEffect, useMemo, useRef, Fragment } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-const NOVIT_TOKEN = "38ca1abbbd83712288d97e05fe7333d7b4544d98";
-const SIRENAS_API = "https://apis2.novit.gpesistemas.ar/monitoreo/sirenas";
+
 const SUPABASE_URL = "https://ygwjvkjrpojxjczcholu.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlnd2p2a2pycG9qeGpjemNob2x1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNzgyNDYsImV4cCI6MjA5NDk1NDI0Nn0.NvCxB2sXVxa4kQVGiVPs6_x1cinRi4UFpBJud6sx1Nw";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
