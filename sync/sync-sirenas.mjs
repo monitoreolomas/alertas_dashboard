@@ -69,14 +69,19 @@ async function sync() {
   await supabase.rpc("truncate_sirenas_cache");
   console.log("Tabla truncada");
 
-  const BATCH = 500;
+  const BATCH = 200;
   for (let i = 0; i < rows.length; i += BATCH) {
     const batch = rows.slice(i, i + BATCH);
-    const { error } = await supabase.from("sirenas_cache").insert(batch);
-    if (error) console.error(`Error batch ${i}:`, error.message);
-    else console.log(`Insertadas ${i + batch.length}/${rows.length}`);
+    const { error } = await supabase
+      .from("sirenas_cache")
+      .upsert(batch, { onConflict: "id" });
+    if (error) {
+      console.error(`Error batch ${i}:`, error.message);
+      process.exit(1); // falla fuerte para ver el error en Actions
+    } else {
+      console.log(`Upserted ${i + batch.length}/${rows.length}`);
+    }
   }
-
   console.log("=== Sync completo ===");
 }
 
