@@ -1219,7 +1219,7 @@ async function cargarSirenas() {
 
   // Auto-refresh cada 2 minutos
   useEffect(() => {
-    const t = setInterval(cargarSirenas, 2 * 60 * 1000);
+    const t = setInterval(cargarSirenas, 60 * 60 * 1000);
     return () => clearInterval(t);
   }, []);
 
@@ -1448,7 +1448,7 @@ const rssiProm = rssiValidos.length
         </div>
         <div style={{fontSize:10,color:T.muted,fontFamily:"'Inter',sans-serif",background:"rgba(56,189,248,0.07)",border:"1px solid rgba(56,189,248,0.2)",borderRadius:8,padding:"4px 12px",display:"flex",alignItems:"center",gap:6}}>
           <span style={{color:"#38bdf8"}}>⚡</span>
-          Datos en vivo · actualización automática cada 2 min
+          Datos en vivo · actualización automática cada 60 min
           {ultimaAct && <span style={{color:"#475569",marginLeft:6}}>· {ultimaAct}</span>}
         </div>
       </div>
