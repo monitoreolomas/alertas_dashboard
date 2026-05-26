@@ -1179,7 +1179,6 @@ async function cargarSirenas() {
     const populate = encodeURIComponent(JSON.stringify([{ path: "localidad", select: "nombre" }]));
     const headers = { Authorization: `Bearer ${NOVIT_TOKEN}` };
 
-    // Obtener total
     const firstRes = await fetch(`${SIRENAS_API}?limit=${PAGE}&page=1&populate=${populate}`, { headers });
     const firstJson = await firstRes.json();
     const total = firstJson.totalCount || 0;
@@ -1187,8 +1186,7 @@ async function cargarSirenas() {
 
     let all = [...(firstJson.datos || [])];
 
-    // Lotes de 10 páginas en paralelo para no saturar el rate limit
-    const BATCH = 10;
+    const BATCH = 8; // Lotes más chicos para no saturar
     for (let i = 2; i <= totalPages; i += BATCH) {
       const batch = Array.from(
         { length: Math.min(BATCH, totalPages - i + 1) },
@@ -1203,9 +1201,10 @@ async function cargarSirenas() {
         )
       );
       all = [...all, ...results.flat()];
+      // Pequeña pausa entre lotes para respetar rate limit
+      if (i + BATCH <= totalPages) await new Promise(r => setTimeout(r, 150));
     }
 
-    // Deduplicar por _id por si hay solapamiento
     const unique = Array.from(new Map(all.map(s => [s._id, s])).values());
     setSirenas(unique);
     setUltimaAct(new Date().toLocaleTimeString("es-AR"));
