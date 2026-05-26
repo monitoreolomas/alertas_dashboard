@@ -567,40 +567,6 @@ function ViewMapa({ data, filters, setFilters }) {
     </div>
   );
 }
-
-// ─── VISTA USUARIOS ───────────────────────────────────────────────────────────
-
-function AgeBarChart({ ranges, total }) {
-  if (!ranges || ranges.length === 0) return <div style={{color:T.muted,fontSize:11,fontFamily:"'Inter',sans-serif"}}>Sin datos de edad válidos</div>;
-  const maxVal = Math.max(...ranges.map(r => r.value), 1);
-  return (
-    <div style={{display:"flex",flexDirection:"column",gap:10}}>
-      {ranges.map(r => {
-        const pct = total > 0 ? ((r.value / total) * 100).toFixed(1) : 0;
-        const barW = (r.value / maxVal) * 100;
-        return (
-          <div key={r.label}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
-              <span style={{fontSize:12,fontWeight:700,color:r.color,fontFamily:"'Inter',sans-serif",minWidth:60}}>{r.label}</span>
-              <span style={{fontSize:11,color:T.text,fontFamily:"'Inter',sans-serif",fontWeight:600}}>{r.value.toLocaleString()}</span>
-              <span style={{fontSize:10,color:T.muted,fontFamily:"'Inter',sans-serif",minWidth:40,textAlign:"right"}}>{pct}%</span>
-            </div>
-            <div style={{height:18,background:"rgba(255,255,255,0.04)",borderRadius:5,overflow:"hidden",position:"relative"}}>
-              <div style={{
-                height:"100%",
-                width:`${barW}%`,
-                background:`linear-gradient(90deg,${r.color}cc,${r.color})`,
-                borderRadius:5,
-                transition:"width 0.6s ease",
-              }}/>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 // ─── VISTA USUARIOS ───────────────────────────────────────────────────────────
 // Reemplazar la función ViewUsuarios completa en App.jsx
 
