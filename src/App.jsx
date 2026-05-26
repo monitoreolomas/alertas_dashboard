@@ -1179,34 +1179,56 @@ async function cargarSirenas() {
     const populate = encodeURIComponent(JSON.stringify([{ path: "localidad", select: "nombre" }]));
     const headers = { Authorization: `Bearer ${NOVIT_TOKEN}` };
 
-    const firstRes = await fetch(`${SIRENAS_API}?limit=${PAGE}&page=1&populate=${populate}`, { headers });
-    const firstJson = await firstRes.json();
-    const total = firstJson.totalCount || 0;
-    const totalPages = Math.ceil(total / PAGE);
+    // Obtener total real primero
+    const countRes = await fetch(`${SIRENAS_API}?limit=1&page=1`, { headers });
+    const countJson = await countRes.json();
+    const totalEsperado = countJson.totalCount || 0;
+    const totalPages = Math.ceil(totalEsperado / PAGE);
 
-    let all = [...(firstJson.datos || [])];
+    let all = [];
+    let intentos = 0;
+    const MAX_INTENTOS = 3;
 
-    const BATCH = 8; // Lotes más chicos para no saturar
-    for (let i = 2; i <= totalPages; i += BATCH) {
-      const batch = Array.from(
-        { length: Math.min(BATCH, totalPages - i + 1) },
-        (_, j) => i + j
-      );
-      const results = await Promise.all(
-        batch.map(p =>
-          fetch(`${SIRENAS_API}?limit=${PAGE}&page=${p}&populate=${populate}`, { headers })
-            .then(r => r.json())
-            .then(j => j.datos || [])
-            .catch(() => [])
-        )
-      );
-      all = [...all, ...results.flat()];
-      // Pequeña pausa entre lotes para respetar rate limit
-      if (i + BATCH <= totalPages) await new Promise(r => setTimeout(r, 150));
+    // Reintentar hasta tener el total correcto o agotar intentos
+    while (all.length < totalEsperado && intentos < MAX_INTENTOS) {
+      intentos++;
+      all = [];
+
+      const BATCH = 8;
+      // Primera página
+      const firstRes = await fetch(`${SIRENAS_API}?limit=${PAGE}&page=1&populate=${populate}`, { headers });
+      const firstJson = await firstRes.json();
+      all = [...(firstJson.datos || [])];
+
+      // Resto en lotes
+      for (let i = 2; i <= totalPages; i += BATCH) {
+        const batch = Array.from(
+          { length: Math.min(BATCH, totalPages - i + 1) },
+          (_, j) => i + j
+        );
+        const results = await Promise.all(
+          batch.map(p =>
+            fetch(`${SIRENAS_API}?limit=${PAGE}&page=${p}&populate=${populate}`, { headers })
+              .then(r => r.json())
+              .then(j => j.datos || [])
+              .catch(() => [])
+          )
+        );
+        all = [...all, ...results.flat()];
+        if (i + BATCH <= totalPages) await new Promise(r => setTimeout(r, 150));
+      }
+
+      // Deduplicar
+      all = Array.from(new Map(all.map(s => [s._id, s])).values());
+
+      if (all.length < totalEsperado) {
+        console.warn(`Intento ${intentos}: traje ${all.length}/${totalEsperado}, reintentando...`);
+        await new Promise(r => setTimeout(r, 500 * intentos));
+      }
     }
 
-    const unique = Array.from(new Map(all.map(s => [s._id, s])).values());
-    setSirenas(unique);
+    console.log(`Sirenas cargadas: ${all.length}/${totalEsperado}`);
+    setSirenas(all);
     setUltimaAct(new Date().toLocaleTimeString("es-AR"));
     setEstado("ok");
   } catch (e) {
@@ -1214,7 +1236,6 @@ async function cargarSirenas() {
     setEstado("error");
   }
 }
-
   useEffect(() => { cargarSirenas(); }, []);
 
   // Auto-refresh cada 2 minutos
