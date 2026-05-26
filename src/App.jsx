@@ -1383,6 +1383,7 @@ const rssiProm = rssiValidos.length
       m.addTo(leafletMap.current);
       markersRef.current.push(m);
     });
+    setTimeout(() => leafletMap.current?.invalidateSize(), 50);
   }, [leafletReady, vistaTab, sirenasFiltradas, sirenasNorm, porLocalidad, filtroCgm]);
 
   // ── Localidades para filtro ────────────────────────────────────────────────
