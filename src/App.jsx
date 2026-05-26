@@ -1253,16 +1253,16 @@ const sirenasFiltradas = useMemo(() => {
 }, [sirenasNorm, filtroCgm, filtroEstado]);
 
   // ── Métricas globales (siempre sobre todas) ───────────────────────────────
-  const total   = sirenasNorm.length;
-  const online  = sirenasNorm.filter(s => s.online).length;
-  const offline = sirenasNorm.filter(s => !s.online).length;
-  const conError = sirenasNorm.filter(s => s.errorAct).length;
-  const dispPct = total > 0 ? ((online / total) * 100).toFixed(1) : "—";
+const total   = sirenasFiltradas.length;
+const online  = sirenasFiltradas.filter(s => s.online).length;
+const offline = sirenasFiltradas.filter(s => !s.online).length;
+const conError = sirenasFiltradas.filter(s => s.errorAct).length;
+const dispPct = total > 0 ? ((online / total) * 100).toFixed(1) : "—";
 
-  const rssiValidos = sirenasNorm.map(s => s.rssi).filter(r => r != null);
-  const rssiProm = rssiValidos.length
-    ? (rssiValidos.reduce((a,b) => a+b, 0) / rssiValidos.length).toFixed(0)
-    : "—";
+const rssiValidos = sirenasFiltradas.map(s => s.rssi).filter(r => r != null);
+const rssiProm = rssiValidos.length
+  ? (rssiValidos.reduce((a,b) => a+b, 0) / rssiValidos.length).toFixed(0)
+  : "—";
 
   // ── Por localidad ──────────────────────────────────────────────────────────
   const porLocalidad = useMemo(() => {
