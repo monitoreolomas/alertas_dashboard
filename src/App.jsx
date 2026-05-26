@@ -1025,7 +1025,7 @@ sub={`${fmtNum(conDni)} de ${fmtNum(filteredCount)}`}
             <div style={{position:"relative",width:80,height:80,flexShrink:0}}>
               <svg width="80" height="80" viewBox="0 0 80 80">
                 <circle cx="40" cy="40" r="28" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="11"/>
-                {totalActivos > 0 && (
+                {filteredCount > 0 && (
                   <circle cx="40" cy="40" r="28" fill="none" stroke={T.green} strokeWidth="11"
                     strokeDasharray={`${(conDni/filteredCount)*175.9} 175.9`}
                     strokeDashoffset="0"
@@ -1037,7 +1037,7 @@ sub={`${fmtNum(conDni)} de ${fmtNum(filteredCount)}`}
             </div>
             <div>
               <div style={{fontSize:28,fontWeight:800,color:T.green,fontFamily:"'Inter',sans-serif",lineHeight:1}}>
-                {totalActivos > 0 ? `${((conDni/totalActivos)*100).toFixed(1)}%` : "—"}
+                {filteredCount > 0 ? `${((conDni/filteredCount)*100).toFixed(1)}%` : "—"}
               </div>
               <div style={{fontSize:11,color:T.text2,marginTop:4,fontFamily:"'Inter',sans-serif"}}>con DNI escaneado</div>
             </div>
