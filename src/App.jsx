@@ -1175,13 +1175,27 @@ const [filtroEstado, setFiltroEstado] = useState(""); // "" | "online" | "offlin
 async function cargarSirenas() {
   setEstado("cargando");
   try {
-    const url = `${SIRENAS_API}?limit=2000&page=1`;
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${NOVIT_TOKEN}` },
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const json = await res.json();
-    setSirenas(json.datos || []);
+    const PAGE = 15;
+    let page = 1;
+    let all = [];
+    let total = null;
+
+    while (true) {
+      const populate = encodeURIComponent(JSON.stringify([{ path: "localidad", select: "nombre" }]));
+      const url = `${SIRENAS_API}?limit=${PAGE}&page=${page}&populate=${populate}`;
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${NOVIT_TOKEN}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      if (total === null) total = json.totalCount || 0;
+      const datos = json.datos || [];
+      all = all.concat(datos);
+      if (all.length >= total || datos.length === 0) break;
+      page++;
+    }
+
+    setSirenas(all);
     setUltimaAct(new Date().toLocaleTimeString("es-AR"));
     setEstado("ok");
   } catch (e) {
@@ -1209,10 +1223,9 @@ const sirenasNorm = useMemo(() => sirenas.map(s => ({
   direccion:    s.direccionManual || s.direccionGps || "—",
   lat:          s.ubicacionGps?.lat ?? s.ubicacionManual?.lat ?? null,
   lng:          s.ubicacionGps?.lng ?? s.ubicacionManual?.lng ?? null,
-  rssi:         null,        // campo no disponible en esta API
-  firmware:     "—",         // campo no disponible en esta API
-  acumOnline:   0,
-  acumOffline:  0,
+  rssi:         typeof s.rssi === "number" ? s.rssi :
+                typeof s.senal === "number" ? s.senal : null,
+  firmware:     s.datosSw?.version || s.versionFirmware || "—",
   errorAct:     s.errorActualizacion === true,
   fechaOnline:  s.fechaOnline  || null,
   fechaOffline: s.fechaOffline || null,
