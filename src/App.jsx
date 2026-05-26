@@ -731,7 +731,7 @@ function ViewUsuarios() {
 
   // ── Métricas sobre TODOS los activos (sin filtro fecha) ───────────────────
   const edadesValidas = useMemo(() =>
-    todosNorm.map(u => u.edad).filter(e => e != null && !isNaN(e) && e >= 18 && e <= 100),
+    filtradosNorm.map(u => u.edad).filter(e => e != null && !isNaN(e) && e >= 18 && e <= 100),
     [todosNorm]
   );
   const edadProm = edadesValidas.length
@@ -748,7 +748,7 @@ function ViewUsuarios() {
   // Sexo — sobre universo completo
   const porSexo = useMemo(() => {
     const acc = {};
-    todosNorm.forEach(u => { acc[u.sexo] = (acc[u.sexo] || 0) + 1; });
+    filtradosNorm.forEach(u => { acc[u.sexo] = (acc[u.sexo] || 0) + 1; });
     return acc;
   }, [todosNorm]);
   const sexoColors = { "Masculino":"#38bdf8", "Femenino":"#f472b6", "Sin dato":T.muted };
@@ -757,7 +757,7 @@ function ViewUsuarios() {
   // FIX 2: Plataforma — sobre TODOS los activos (sin filtro fecha)
   const porPlataforma = useMemo(() => {
     const acc = {};
-    todosNorm.forEach(u => { acc[u.plataforma] = (acc[u.plataforma] || 0) + 1; });
+    filtradosNorm.forEach(u => { acc[u.plataforma] = (acc[u.plataforma] || 0) + 1; });
     return acc;
   }, [todosNorm]);
   const platMaxVal = Math.max(...Object.values(porPlataforma), 1);
@@ -765,22 +765,22 @@ function ViewUsuarios() {
   // Localidad — sobre universo completo
   const porLocalidad = useMemo(() => {
     const acc = {};
-    todosNorm.forEach(u => { acc[u.localidadNombre] = (acc[u.localidadNombre] || 0) + 1; });
+    filtradosNorm.forEach(u => { acc[u.localidadNombre] = (acc[u.localidadNombre] || 0) + 1; });
     return acc;
   }, [todosNorm]);
   const topLocalidades = topN(porLocalidad, 10);
   const locMax = Math.max(...topLocalidades.map(([,v])=>v), 1);
 
   // DNI — sobre universo completo
-  const conDni = todosNorm.filter(u => u.dniEscaneado).length;
-  const sinDni = totalActivos - conDni;
+  const conDni = filtradosNorm.filter(u => u.dniEscaneado).length;
+  const sinDni = filteredCount - conDni;
 
   // Categorías — sobre universo completo
   const categorias = useMemo(() => {
     const acc = {};
-    todosNorm.forEach(u => { acc[u.categoriaFix] = (acc[u.categoriaFix] || 0) + 1; });
+    filtradosNorm.forEach(u => { acc[u.categoriaFix] = (acc[u.categoriaFix] || 0) + 1; });
     return acc;
-  }, [todosNorm]);
+  }, [filtradosNorm]);
   const topCategorias = topN(categorias, 8);
 
   // Evolución de altas — sobre filtrados por fecha
@@ -946,8 +946,8 @@ function ViewUsuarios() {
         />
         <KPI
           label="Con DNI Escaneado"
-          value={totalActivos > 0 ? `${((conDni/totalActivos)*100).toFixed(0)}%` : "—"}
-          sub={`${fmtNum(conDni)} de ${fmtNum(totalActivos)}`}
+value={filteredCount > 0 ? `${((conDni/filteredCount)*100).toFixed(0)}%` : "—"}
+sub={`${fmtNum(conDni)} de ${fmtNum(filteredCount)}`}
           color={T.amber} icon="🪪"
         />
       </div>
@@ -958,7 +958,7 @@ function ViewUsuarios() {
           {topLocalidades.length === 0
             ? <div style={{color:T.muted,fontSize:11}}>Sin datos</div>
             : topLocalidades.map(([loc,val]) => (
-                <HBar key={loc} label={loc} value={val} max={locMax} color={T.accent} total={totalActivos}/>
+                <HBar key={loc} label={loc} value={val} max={locMax} color={T.accent} total={filteredCount}/>
               ))
           }
         </Card>
@@ -985,7 +985,7 @@ function ViewUsuarios() {
                     <HBar key={s} label={s} value={v}
                       max={sexoMaxVal}
                       color={sexoColors[s] || T.muted}
-                      total={totalActivos}/>
+                      total={filteredCount}/>
                   ))
             }
           </Card>
@@ -1002,7 +1002,7 @@ function ViewUsuarios() {
                         p.toLowerCase().includes("ios")     ? "#38bdf8" :
                         p.toLowerCase().includes("android") ? T.green   : T.muted
                       }
-                      total={totalActivos}/>
+                      total={filteredCount}/>
                   ))
             }
           </Card>
@@ -1016,7 +1016,7 @@ function ViewUsuarios() {
             const colors=[T.accent,T.green,T.amber,T.red,"#38bdf8","#f472b6","#a78bfa","#34d399"];
             return <HBar key={cat} label={cat} value={val}
               max={Math.max(...topCategorias.map(([,v])=>v),1)}
-              color={colors[i%colors.length]} total={totalActivos}/>;
+              color={colors[i%colors.length]} total={filteredCount}/>;
           })}
         </Card>
 
@@ -1027,7 +1027,7 @@ function ViewUsuarios() {
                 <circle cx="40" cy="40" r="28" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="11"/>
                 {totalActivos > 0 && (
                   <circle cx="40" cy="40" r="28" fill="none" stroke={T.green} strokeWidth="11"
-                    strokeDasharray={`${(conDni/totalActivos)*175.9} 175.9`}
+                    strokeDasharray={`${(conDni/filteredCount)*175.9} 175.9`}
                     strokeDashoffset="0"
                     style={{transform:"rotate(-90deg)",transformOrigin:"40px 40px"}}
                     opacity="0.85"/>
@@ -1042,8 +1042,8 @@ function ViewUsuarios() {
               <div style={{fontSize:11,color:T.text2,marginTop:4,fontFamily:"'Inter',sans-serif"}}>con DNI escaneado</div>
             </div>
           </div>
-          <HBar label="Con DNI" value={conDni} max={totalActivos} color={T.green} total={totalActivos}/>
-          <HBar label="Sin DNI" value={sinDni} max={totalActivos} color={T.red}   total={totalActivos}/>
+          <HBar label="Con DNI" value={conDni} max={totalActivos} color={T.green} total={filteredCount}/>
+          <HBar label="Sin DNI" value={sinDni} max={totalActivos} color={T.red}   total={filteredCount}/>
         </Card>
       </div>
 
