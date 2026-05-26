@@ -3,13 +3,15 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "sync":      "node sync-usuarios.js",
-    "sync:full": "node sync-usuarios.js --full",
-    "sync:dry":  "node sync-usuarios.js --full --dry-run"
+    "sync": "node sync-full.mjs",
+    "sync:dry": "node sync-full.mjs --dry-run"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
     "dotenv": "^16.4.5",
-    "node-fetch": "^3.3.2"
+    "node-fetch": "^3.3.2",
+    "playwright": "^1.44.0",
+    "ws": "^8.17.0",
+    "xlsx": "^0.18.5"
   }
 }
