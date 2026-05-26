@@ -23,7 +23,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: sync
-        run: npm ci
+        run: npm install
 
       - name: Install Playwright browsers
         working-directory: sync
