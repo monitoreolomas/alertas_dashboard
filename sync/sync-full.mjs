@@ -5,10 +5,7 @@
  * Pipeline completo (una sola vez al día):
  *   1. Trae todos los usuarios de la API Novit (con sus MongoDB IDs y app_type)
  *   2. Descarga el Excel de Novit vía Playwright
- *   3. Matchea cada fila del Excel con la API por:
- *      → nombre|dni   si tiene DNI
- *      → nombre|fecha si no tiene DNI
- *      → hash MD5 si no matchea por ninguno
+ *   3. Matchea cada fila del Excel con la API por DNI (único e inequívoco)
  *   4. TRUNCATE usuarios_cache
  *   5. INSERT de todos los registros (API + Excel no-duplicados)
  * ─────────────────────────────────────────────────────────────────────────────
@@ -80,17 +77,6 @@ function limpiarJsonStr(rows) {
   return JSON.parse(json);
 }
 
-/** Normaliza un nombre para usar como clave de match */
-function normalizarNombre(nombre) {
-  if (!nombre) return "";
-  return String(nombre)
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")  // saca tildes
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 /** Normaliza un DNI: solo dígitos */
 function normalizarDni(dni) {
   if (!dni) return "";
@@ -98,36 +84,27 @@ function normalizarDni(dni) {
 }
 
 /**
- * Claves de match para un usuario de la API.
- * Devuelve un array porque un usuario puede tener DNI y/o fecha,
- * y queremos indexar ambas claves.
- *   - con DNI:   "nombre|dni"
- *   - con fecha: "nombre|fecha"
+ * Clave de match para un usuario de la API: solo por DNI.
+ * Devuelve array para mantener la interfaz (puede estar vacío si no tiene DNI).
  */
-function clavesMatchAPI(nombreCompleto, dni, fechaCreacion) {
-  const nombre = normalizarNombre(nombreCompleto);
-  const claves = [];
+function clavesMatchAPI(dni) {
   const dniNorm = normalizarDni(dni);
-  if (dniNorm) claves.push(`${nombre}|dni:${dniNorm}`);
-  if (fechaCreacion) claves.push(`${nombre}|fecha:${String(fechaCreacion).slice(0, 10)}`);
-  return claves;
+  if (dniNorm) return [`dni:${dniNorm}`];
+  return [];
 }
 
 /**
- * Clave de match para una fila del Excel.
- * Prioriza DNI; si no tiene, usa fecha.
+ * Clave de match para una fila del Excel: solo por DNI.
  */
-function claveMatchExcel(nombreCompleto, dni, fechaCreacion) {
-  const nombre  = normalizarNombre(nombreCompleto);
+function claveMatchExcel(dni) {
   const dniNorm = normalizarDni(dni);
-  if (dniNorm) return `${nombre}|dni:${dniNorm}`;
-  if (fechaCreacion) return `${nombre}|fecha:${String(fechaCreacion).slice(0, 10)}`;
+  if (dniNorm) return `dni:${dniNorm}`;
   return null;
 }
 
 /** Genera un ID hash MD5 de 24 chars como fallback */
 function generarIdHash(nombre, fechaCreacion, dni) {
-  const base = `${normalizarNombre(nombre)}|${fechaCreacion || ""}|${normalizarDni(dni)}`;
+  const base = `${nombre || ""}|${fechaCreacion || ""}|${normalizarDni(dni)}`;
   return crypto.createHash("md5").update(base).digest("hex").slice(0, 24);
 }
 
@@ -161,9 +138,6 @@ function normalizarUsuarioAPI(u) {
     categoriaNombre = s.cliente.categoriaDefault.nombre;
   }
 
-  const nombreCompleto = [s?.datosPersonales?.apellido, s?.datosPersonales?.nombre]
-    .filter(Boolean).join(" ");
-
   const dni = limpiarStr(s?.datosPersonales?.dni);
 
   return {
@@ -171,8 +145,7 @@ function normalizarUsuarioAPI(u) {
     usuario:             limpiarStr(s.usuario),
     nombre:              limpiarStr(s?.datosPersonales?.nombre),
     apellido:            limpiarStr(s?.datosPersonales?.apellido),
-    nombre_completo:     nombreCompleto,  // solo para match, no se guarda
-    dni,                                  // se guarda en la nueva columna
+    dni,
     sexo:                s?.datosPersonales?.sexo ?? null,
     fecha_nacimiento:    s?.datosPersonales?.fechaNacimiento?.slice(0, 10) || null,
     dni_escaneado:       s?.dniEscaneado === true || s?.dniEscaneado === "true",
@@ -340,8 +313,8 @@ function normalizarFilaExcel(row, apiMap) {
   const nombre   = partes.slice(1).join(" ") || nombreCompleto;
   const dni      = limpiarStr(row["DNI"]);
 
-  // Match: primero por nombre|dni, luego por nombre|fecha
-  const clave    = claveMatchExcel(nombreCompleto, dni, fechaCreacion);
+  // Match solo por DNI
+  const clave    = claveMatchExcel(dni);
   const apiMatch = clave ? apiMap.get(clave) : null;
 
   const id       = apiMatch ? apiMatch.id       : generarIdHash(nombreCompleto, fechaCreacion, dni);
@@ -352,7 +325,7 @@ function normalizarFilaExcel(row, apiMap) {
     usuario:          limpiarStr(row["Email"]),
     nombre,
     apellido,
-    dni:              dni,
+    dni,
     sexo:             limpiarStr(row["Sexo"]),
     fecha_nacimiento: (() => {
       try {
@@ -382,7 +355,7 @@ function normalizarFilaExcel(row, apiMap) {
 }
 
 function procesarExcel(xlsPath, apiMap) {
-  log("── PASO 3: Procesando Excel y haciendo match ──");
+  log("── PASO 3: Procesando Excel y haciendo match por DNI ──");
   const wb      = readFile(xlsPath);
   const ws      = wb.Sheets[wb.SheetNames[0]];
   const rawRows = utils.sheet_to_json(ws, { defval: null });
@@ -391,30 +364,20 @@ function procesarExcel(xlsPath, apiMap) {
   const rows = rawRows.map(row => normalizarFilaExcel(row, apiMap));
 
   let matcheados = 0;
-  let matchDni   = 0;
-  let matchFecha = 0;
   const sinMatch = [];
 
   for (const r of rows) {
-    const dniNorm  = normalizarDni(r.dni);
-    const nombre   = normalizarNombre([r.apellido, r.nombre].filter(Boolean).join(" "));
-    const claveDni = dniNorm  ? `${nombre}|dni:${dniNorm}` : null;
-    const claveFecha = r.fecha_creacion ? `${nombre}|fecha:${String(r.fecha_creacion).slice(0, 10)}` : null;
-
+    const claveDni = claveMatchExcel(r.dni);
     if (claveDni && apiMap.has(claveDni)) {
-      matcheados++; matchDni++;
-    } else if (claveFecha && apiMap.has(claveFecha)) {
-      matcheados++; matchFecha++;
+      matcheados++;
     } else {
       sinMatch.push(r);
     }
   }
 
   const pct = rows.length > 0 ? ((matcheados / rows.length) * 100).toFixed(1) : "0.0";
-  log(`  Matcheados con API: ${matcheados.toLocaleString()} / ${rows.length.toLocaleString()} (${pct}%)`);
-  log(`    → por DNI:   ${matchDni.toLocaleString()}`);
-  log(`    → por fecha: ${matchFecha.toLocaleString()}`);
-  log(`  Sin match (hash fallback): ${sinMatch.length.toLocaleString()}`);
+  log(`  Matcheados con API por DNI: ${matcheados.toLocaleString()} / ${rows.length.toLocaleString()} (${pct}%)`);
+  log(`  Sin match (hash fallback):  ${sinMatch.length.toLocaleString()}`);
 
   if (sinMatch.length > 0 && sinMatch.length <= 20) {
     log("  Detalle sin match:");
@@ -483,10 +446,7 @@ async function truncateEInsert(apiRows, excelRows) {
   log(`  API rows: ${apiRows.length.toLocaleString()}`);
   log(`  Excel rows nuevos (sin duplicar): ${excelSolo.length.toLocaleString()}`);
 
-  const toInsert = [
-    ...apiRows.map(({ nombre_completo, ...r }) => r),
-    ...excelSolo,
-  ];
+  const toInsert = [...apiRows, ...excelSolo];
   log(`  Total a insertar: ${toInsert.length.toLocaleString()}`);
 
   let written = 0;
@@ -510,15 +470,14 @@ async function main() {
   // 1. Traer API
   const apiRows = await traerTodosDeAPI();
 
-  // Construir mapa de match con dos claves por usuario: nombre|dni y nombre|fecha
+  // Construir mapa de match solo por DNI
   const apiMap = new Map();
   for (const u of apiRows) {
-    if (!u.nombre_completo) continue;
-    for (const clave of clavesMatchAPI(u.nombre_completo, u.dni, u.fecha_creacion)) {
+    for (const clave of clavesMatchAPI(u.dni)) {
       if (!apiMap.has(clave)) apiMap.set(clave, { id: u.id, app_type: u.app_type });
     }
   }
-  log(`Mapa de match construido: ${apiMap.size.toLocaleString()} entradas`);
+  log(`Mapa de match construido: ${apiMap.size.toLocaleString()} entradas (por DNI)`);
 
   // 2. Descargar Excel
   const xlsPath = await descargarExcel();
