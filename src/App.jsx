@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo, useRef, Fragment } from "react";
 import { createClient } from "@supabase/supabase-js";
 
+const NOVIT_TOKEN = "38ca1abbbd83712288d97e05fe7333d7b4544d98";
+const SIRENAS_API = "https://apis2.novit.gpesistemas.ar/monitoreo/sirenas";
 const SUPABASE_URL = "https://ygwjvkjrpojxjczcholu.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlnd2p2a2pycG9qeGpjemNob2x1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNzgyNDYsImV4cCI6MjA5NDk1NDI0Nn0.NvCxB2sXVxa4kQVGiVPs6_x1cinRi4UFpBJud6sx1Nw";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1141,6 +1143,493 @@ sub={`${fmtNum(conDni)} de ${fmtNum(filteredCount)}`}
   );
 }
 
+// ─── VISTA SIRENAS ────────────────────────────────────────────────────────────
+// Agregar esta constante junto a las otras constantes de la API al inicio del archivo:
+//
+//   const NOVIT_TOKEN = "38ca1abbbd83712288d97e05fe7333d7b4544d98";
+//   const SIRENAS_API = "https://apis2.novit.gpesistemas.ar/monitoreo/sirenas";
+//
+// Luego agregar el tab en el array TABS:
+//   { id:"sirenas", label:"Sirenas", icon:"📡" }
+//
+// Y en el bloque de contenido agregar:
+//   {view==="sirenas" && <ViewSirenas leafletReady={leafletReady}/>}
+// ─────────────────────────────────────────────────────────────────────────────
+
+const NOVIT_TOKEN = "38ca1abbbd83712288d97e05fe7333d7b4544d98";
+const SIRENAS_API = "https://apis2.novit.gpesistemas.ar/monitoreo/sirenas";
+
+function ViewSirenas({ leafletReady }) {
+  const [estado, setEstado]       = useState("idle");
+  const [sirenas, setSirenas]     = useState([]);
+  const [ultimaAct, setUltimaAct] = useState(null);
+  const [filtroCgm, setFiltroCgm] = useState("");
+  const [vistaTab, setVistaTab]   = useState("resumen"); // resumen | mapa | tabla
+  const mapRef      = useRef(null);
+  const leafletMap  = useRef(null);
+  const markersRef  = useRef([]);
+  const polygonsRef = useRef([]);
+
+  // ── Fetch en vivo ──────────────────────────────────────────────────────────
+  async function cargarSirenas() {
+    setEstado("cargando");
+    try {
+      const populate = JSON.stringify([{ path: "idLocalidad", select: "nombre" }]);
+      const url = `${SIRENAS_API}?limit=2000&page=1&populate=${encodeURIComponent(populate)}`;
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${NOVIT_TOKEN}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      setSirenas(json.datos || []);
+      setUltimaAct(new Date().toLocaleTimeString("es-AR"));
+      setEstado("ok");
+    } catch (e) {
+      console.error("Error cargando sirenas:", e);
+      setEstado("error");
+    }
+  }
+
+  useEffect(() => { cargarSirenas(); }, []);
+
+  // Auto-refresh cada 2 minutos
+  useEffect(() => {
+    const t = setInterval(cargarSirenas, 2 * 60 * 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  // ── Normalizar ─────────────────────────────────────────────────────────────
+  const sirenasNorm = useMemo(() => sirenas.map(s => ({
+    id:           s._id,
+    online:       s.online === true,
+    activa:       s.activa !== false,
+    modelo:       s.modeloSirena || s.tipo || "Sin modelo",
+    localidad:    s.idLocalidad?.nombre?.trim() || "Sin localidad",
+    direccion:    s.direccionManual || s.direccionGps || "—",
+    lat:          s.ubicacionGps?.lat ?? s.ubicacionManual?.lat ?? null,
+    lng:          s.ubicacionGps?.lng ?? s.ubicacionManual?.lng ?? null,
+    rssi:         typeof s.rssi === "number" ? s.rssi : null,
+    firmware:     s.versionFirmware || "—",
+    acumOnline:   s.acumuladoOnline  || 0,
+    acumOffline:  s.acumuladoOffline || 0,
+    errorAct:     s.errorActualizacion === true,
+    fechaOnline:  s.fechaOnline  || null,
+    fechaOffline: s.fechaOffline || null,
+  })), [sirenas]);
+
+  // ── Filtro por localidad ───────────────────────────────────────────────────
+  const sirenasFiltradas = useMemo(() =>
+    filtroCgm ? sirenasNorm.filter(s => s.localidad === filtroCgm) : sirenasNorm,
+    [sirenasNorm, filtroCgm]
+  );
+
+  // ── Métricas globales (siempre sobre todas) ───────────────────────────────
+  const total   = sirenasNorm.length;
+  const online  = sirenasNorm.filter(s => s.online).length;
+  const offline = sirenasNorm.filter(s => !s.online).length;
+  const conError = sirenasNorm.filter(s => s.errorAct).length;
+  const dispPct = total > 0 ? ((online / total) * 100).toFixed(1) : "—";
+
+  const rssiValidos = sirenasNorm.map(s => s.rssi).filter(r => r != null);
+  const rssiProm = rssiValidos.length
+    ? (rssiValidos.reduce((a,b) => a+b, 0) / rssiValidos.length).toFixed(0)
+    : "—";
+
+  // ── Por localidad ──────────────────────────────────────────────────────────
+  const porLocalidad = useMemo(() => {
+    const acc = {};
+    sirenasNorm.forEach(s => {
+      const l = s.localidad;
+      if (!acc[l]) acc[l] = { total:0, online:0, offline:0 };
+      acc[l].total++;
+      if (s.online) acc[l].online++; else acc[l].offline++;
+    });
+    return Object.entries(acc).sort((a,b) => b[1].total - a[1].total);
+  }, [sirenasNorm]);
+
+  // ── Por modelo ─────────────────────────────────────────────────────────────
+  const porModelo = useMemo(() => {
+    const acc = {};
+    sirenasNorm.forEach(s => { acc[s.modelo] = (acc[s.modelo]||0)+1; });
+    return Object.entries(acc).sort((a,b) => b[1]-a[1]);
+  }, [sirenasNorm]);
+
+  // ── Por firmware ───────────────────────────────────────────────────────────
+  const porFirmware = useMemo(() => {
+    const acc = {};
+    sirenasNorm.forEach(s => { acc[s.firmware] = (acc[s.firmware]||0)+1; });
+    return Object.entries(acc).sort((a,b) => b[1]-a[1]).slice(0,6);
+  }, [sirenasNorm]);
+
+  // ── Calidad de señal RSSI ──────────────────────────────────────────────────
+  const rssiGrupos = useMemo(() => {
+    let excelente=0, buena=0, regular=0, mala=0, sinDato=0;
+    sirenasNorm.forEach(s => {
+      if (s.rssi == null)    sinDato++;
+      else if (s.rssi >= -65) excelente++;
+      else if (s.rssi >= -75) buena++;
+      else if (s.rssi >= -85) regular++;
+      else                    mala++;
+    });
+    return [
+      { label:"Excelente (≥-65)", value:excelente, color:"#10b981" },
+      { label:"Buena (-65 a -75)", value:buena,     color:"#38bdf8" },
+      { label:"Regular (-75 a -85)", value:regular, color:"#f59e0b" },
+      { label:"Mala (<-85)",       value:mala,      color:"#ef4444" },
+      { label:"Sin dato",          value:sinDato,   color:"#475569" },
+    ].filter(g => g.value > 0);
+  }, [sirenasNorm]);
+
+  // ── Mapa de puntos ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!leafletReady || vistaTab !== "mapa") return;
+    const L = window.L;
+    if (!L || !mapRef.current) return;
+
+    if (!leafletMap.current) {
+      leafletMap.current = L.map(mapRef.current, {
+        center: [-34.762, -58.42], zoom: 12,
+        zoomControl: false, attributionControl: false,
+      });
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        className: "cgm-dark-tiles",
+      }).addTo(leafletMap.current);
+      L.control.zoom({ position:"bottomright" }).addTo(leafletMap.current);
+    }
+
+    // Limpiar markers anteriores
+    markersRef.current.forEach(m => leafletMap.current.removeLayer(m));
+    markersRef.current = [];
+    polygonsRef.current.forEach(p => leafletMap.current.removeLayer(p));
+    polygonsRef.current = [];
+
+    // Polígonos CGM coloreados por % online
+    CGM_GEOJSON.features.forEach(feature => {
+      const name = feature.properties.name;
+      const datos = porLocalidad.find(([l]) => l === name)?.[1];
+      let fillColor = "rgba(139,92,246,0.08)";
+      if (datos) {
+        const pct = datos.total > 0 ? datos.online / datos.total : 0;
+        if (pct >= 0.95)     fillColor = "rgba(16,185,129,0.25)";
+        else if (pct >= 0.80) fillColor = "rgba(245,158,11,0.25)";
+        else                  fillColor = "rgba(239,68,68,0.28)";
+      }
+      const poly = L.geoJSON(feature, {
+        style: { fillColor, fillOpacity:0.7, color:"rgba(139,92,246,0.35)", weight:1.5 },
+      });
+      poly.bindTooltip(
+        datos
+          ? `<b>${name}</b><br>${datos.online}/${datos.total} online (${((datos.online/datos.total)*100).toFixed(0)}%)`
+          : `<b>${name}</b><br>Sin sirenas`,
+        { className:"sirena-tooltip" }
+      );
+      poly.addTo(leafletMap.current);
+      polygonsRef.current.push(poly);
+    });
+
+    // Puntos de sirenas
+    const toShow = filtroCgm
+      ? sirenasFiltradas.filter(s => s.lat && s.lng)
+      : sirenasNorm.filter(s => s.lat && s.lng);
+
+    toShow.forEach(s => {
+      const color  = s.online ? "#10b981" : "#ef4444";
+      const icon = L.divIcon({
+        className: "",
+        html: `<div style="width:10px;height:10px;border-radius:50%;background:${color};border:2px solid ${s.online?"#6ee7b7":"#fca5a5"};box-shadow:0 0 6px ${color}88;"></div>`,
+        iconAnchor: [5,5],
+      });
+      const m = L.marker([s.lat, s.lng], { icon });
+      m.bindPopup(`
+        <div style="font-family:Inter,sans-serif;font-size:11px;min-width:160px;">
+          <div style="font-weight:700;margin-bottom:4px;">${s.modelo}</div>
+          <div style="color:#64748b;margin-bottom:6px;">${s.direccion}</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <span style="background:${s.online?"#10b98120":"#ef444420"};color:${s.online?"#10b981":"#ef4444"};border-radius:4px;padding:1px 7px;font-size:10px;font-weight:600;">${s.online?"● Online":"● Offline"}</span>
+            ${s.rssi != null ? `<span style="color:#f59e0b;font-size:10px;">RSSI: ${s.rssi} dBm</span>` : ""}
+          </div>
+          ${s.firmware !== "—" ? `<div style="color:#475569;font-size:9px;margin-top:4px;">FW: ${s.firmware}</div>` : ""}
+        </div>
+      `);
+      m.addTo(leafletMap.current);
+      markersRef.current.push(m);
+    });
+  }, [leafletReady, vistaTab, sirenasFiltradas, sirenasNorm, porLocalidad, filtroCgm]);
+
+  // ── Localidades para filtro ────────────────────────────────────────────────
+  const localidadOpts = useMemo(() =>
+    [...new Set(sirenasNorm.map(s => s.localidad))].sort(),
+    [sirenasNorm]
+  );
+
+  // ── Colores ────────────────────────────────────────────────────────────────
+  const modeloColors = ["#8b5cf6","#10b981","#38bdf8","#f59e0b","#ef4444","#f472b6"];
+
+  // ── Estados de carga ───────────────────────────────────────────────────────
+  if (estado === "cargando") return (
+    <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:300,gap:16}}>
+      <div style={{width:44,height:44,borderRadius:12,background:`linear-gradient(135deg,#38bdf8,#0ea5e9)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>📡</div>
+      <div style={{fontSize:12,color:T.muted,fontWeight:500,fontFamily:"'Inter',sans-serif"}}>Cargando sirenas en vivo…</div>
+    </div>
+  );
+
+  if (estado === "error") return (
+    <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:300,gap:12}}>
+      <div style={{fontSize:32}}>⚠️</div>
+      <div style={{fontSize:13,color:T.red,fontFamily:"'Inter',sans-serif"}}>Error al cargar sirenas</div>
+      <button onClick={cargarSirenas} style={{background:`rgba(56,189,248,0.15)`,border:`1px solid #38bdf8`,color:"#38bdf8",borderRadius:10,padding:"8px 20px",fontSize:12,fontFamily:"'Inter',sans-serif",cursor:"pointer",fontWeight:600}}>
+        ↺ Reintentar
+      </button>
+    </div>
+  );
+
+  return (
+    <div>
+      {/* ── Header barra de estado ── */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+          {/* Filtro localidad */}
+          <select
+            value={filtroCgm}
+            onChange={e => setFiltroCgm(e.target.value)}
+            style={{background:"#0d0d1f",border:`1px solid ${T.border}`,color:T.text,borderRadius:10,padding:"7px 12px",fontSize:12,fontFamily:"'Inter',sans-serif",outline:"none",cursor:"pointer"}}
+          >
+            <option value="">Todas las localidades</option>
+            {localidadOpts.map(l => <option key={l} value={l}>{l}</option>)}
+          </select>
+          {filtroCgm && (
+            <button onClick={()=>setFiltroCgm("")}
+              style={{background:"rgba(56,189,248,0.1)",border:`1px solid rgba(56,189,248,0.3)`,color:"#38bdf8",borderRadius:8,padding:"6px 12px",fontSize:11,fontFamily:"'Inter',sans-serif",cursor:"pointer",fontWeight:600}}>
+              ✕ Quitar filtro
+            </button>
+          )}
+          <button onClick={cargarSirenas}
+            style={{background:"rgba(16,185,129,0.1)",border:`1px solid rgba(16,185,129,0.3)`,color:T.green,borderRadius:8,padding:"6px 12px",fontSize:11,fontFamily:"'Inter',sans-serif",cursor:"pointer",fontWeight:600,display:"flex",alignItems:"center",gap:5}}>
+            ↺ Actualizar
+          </button>
+        </div>
+        <div style={{fontSize:10,color:T.muted,fontFamily:"'Inter',sans-serif",background:"rgba(56,189,248,0.07)",border:"1px solid rgba(56,189,248,0.2)",borderRadius:8,padding:"4px 12px",display:"flex",alignItems:"center",gap:6}}>
+          <span style={{color:"#38bdf8"}}>⚡</span>
+          Datos en vivo · actualización automática cada 2 min
+          {ultimaAct && <span style={{color:"#475569",marginLeft:6}}>· {ultimaAct}</span>}
+        </div>
+      </div>
+
+      {/* ── KPIs ── */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(170px,1fr))",gap:12,marginBottom:20}}>
+        <KPI label="Total Sirenas"    value={total.toLocaleString("es-AR")}  sub="en el sistema"             color="#38bdf8" icon="📡"/>
+        <KPI label="Online"           value={online.toLocaleString("es-AR")} sub={`${dispPct}% disponibles`} color={T.green} icon="🟢"/>
+        <KPI label="Offline"          value={offline.toLocaleString("es-AR")}sub="fuera de servicio"         color={T.red}   icon="🔴" invertDelta={true}/>
+        <KPI label="Señal Promedio"   value={rssiProm !== "—" ? `${rssiProm} dBm` : "—"} sub="RSSI promedio" color={T.amber} icon="📶"/>
+        <KPI label="Con Error"        value={conError.toLocaleString("es-AR")} sub="error de actualización"  color={conError>0?T.red:T.green} icon="⚠️" invertDelta={true}/>
+        <KPI label="Disponibilidad"   value={`${dispPct}%`} sub={`${online} de ${total} operativas`}         color={parseFloat(dispPct)>=95?T.green:parseFloat(dispPct)>=80?T.amber:T.red} icon="✅"/>
+      </div>
+
+      {/* ── Sub-tabs ── */}
+      <div style={{display:"flex",gap:6,marginBottom:16}}>
+        {[
+          {id:"resumen", label:"Resumen", icon:"📊"},
+          {id:"mapa",    label:"Mapa",    icon:"🗺"},
+          {id:"tabla",   label:"Detalle", icon:"📋"},
+        ].map(t => (
+          <button key={t.id} onClick={()=>setVistaTab(t.id)} style={{
+            background: vistaTab===t.id ? "rgba(56,189,248,0.15)" : "transparent",
+            border: `1px solid ${vistaTab===t.id ? "#38bdf8" : T.border}`,
+            color: vistaTab===t.id ? "#38bdf8" : T.text2,
+            borderRadius:8, padding:"6px 14px", fontSize:11,
+            fontFamily:"'Inter',sans-serif", fontWeight:600, cursor:"pointer",
+            display:"flex", alignItems:"center", gap:5,
+          }}>
+            <span>{t.icon}</span>{t.label.toUpperCase()}
+          </button>
+        ))}
+      </div>
+
+      {/* ── VISTA RESUMEN ── */}
+      {vistaTab === "resumen" && (
+        <div>
+          {/* Fila 1: Por localidad + Señal RSSI */}
+          <div style={{display:"grid",gridTemplateColumns:"1.4fr 1fr",gap:14,marginBottom:14}}>
+            <Card title="Estado por Localidad / CGM" icon="📍">
+              <div style={{marginBottom:8}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr auto auto auto",gap:"0 12px",fontSize:9,color:T.muted,fontWeight:600,letterSpacing:"0.05em",textTransform:"uppercase",paddingBottom:6,borderBottom:`1px solid rgba(139,92,246,0.1)`,fontFamily:"'Inter',sans-serif"}}>
+                  <span>Localidad</span><span style={{textAlign:"right"}}>Total</span><span style={{textAlign:"right",color:T.green}}>Online</span><span style={{textAlign:"right",color:T.red}}>Offline</span>
+                </div>
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:7}}>
+                {(filtroCgm
+                  ? porLocalidad.filter(([l]) => l === filtroCgm)
+                  : porLocalidad
+                ).map(([loc, d]) => {
+                  const pct = d.total > 0 ? (d.online/d.total)*100 : 0;
+                  const barColor = pct >= 95 ? T.green : pct >= 80 ? T.amber : T.red;
+                  const isSelected = filtroCgm === loc;
+                  return (
+                    <div key={loc}
+                      onClick={() => setFiltroCgm(isSelected ? "" : loc)}
+                      style={{cursor:"pointer",background:isSelected?"rgba(56,189,248,0.07)":"transparent",borderRadius:8,padding:"5px 6px",borderLeft:isSelected?"2px solid #38bdf8":"2px solid transparent",transition:"all 0.15s"}}>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr auto auto auto",gap:"0 12px",alignItems:"center",marginBottom:4}}>
+                        <span style={{fontSize:11,color:isSelected?"#38bdf8":T.text2,fontFamily:"'Inter',sans-serif",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{loc}</span>
+                        <span style={{fontSize:11,color:T.accent,fontWeight:700,fontFamily:"'Inter',sans-serif",textAlign:"right"}}>{d.total}</span>
+                        <span style={{fontSize:11,color:T.green,fontFamily:"'Inter',sans-serif",textAlign:"right"}}>{d.online}</span>
+                        <span style={{fontSize:11,color:d.offline>0?T.red:T.muted,fontFamily:"'Inter',sans-serif",textAlign:"right"}}>{d.offline}</span>
+                      </div>
+                      <div style={{height:3,background:"rgba(255,255,255,0.05)",borderRadius:2,overflow:"hidden"}}>
+                        <div style={{height:"100%",width:`${pct}%`,background:barColor,borderRadius:2,transition:"width 0.5s"}}/>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+
+            <div style={{display:"flex",flexDirection:"column",gap:12}}>
+              {/* Señal RSSI */}
+              <Card title="Calidad de Señal (RSSI)" icon="📶" style={{flex:1}}>
+                {rssiGrupos.map(g => (
+                  <HBar key={g.label} label={g.label} value={g.value}
+                    max={Math.max(...rssiGrupos.map(x=>x.value),1)}
+                    color={g.color} total={total}/>
+                ))}
+              </Card>
+
+              {/* Modelos */}
+              <Card title="Por Modelo" icon="🔊" style={{flex:1}}>
+                {porModelo.map(([modelo, val], i) => (
+                  <HBar key={modelo} label={modelo} value={val}
+                    max={Math.max(...porModelo.map(([,v])=>v),1)}
+                    color={modeloColors[i % modeloColors.length]} total={total}/>
+                ))}
+              </Card>
+            </div>
+          </div>
+
+          {/* Fila 2: Firmware + Offline críticas */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1.4fr",gap:14}}>
+            <Card title="Versiones de Firmware" icon="💾">
+              {porFirmware.map(([fw, val], i) => (
+                <HBar key={fw} label={fw} value={val}
+                  max={Math.max(...porFirmware.map(([,v])=>v),1)}
+                  color={i===0?T.green:i===1?"#38bdf8":T.muted} total={total}/>
+              ))}
+              {porFirmware.length === 0 && <div style={{color:T.muted,fontSize:11,fontFamily:"'Inter',sans-serif"}}>Sin datos de firmware</div>}
+            </Card>
+
+            <Card title="Sirenas Offline · Detalle" icon="🔴">
+              <div style={{overflowX:"auto",maxHeight:200,overflowY:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:10,fontFamily:"'Inter',sans-serif"}}>
+                  <thead>
+                    <tr style={{borderBottom:`1px solid ${T.border}`}}>
+                      {["Dirección","Localidad","Modelo","Últ. offline"].map(h=>(
+                        <th key={h} style={{textAlign:"left",padding:"4px 8px",color:T.muted,fontWeight:600,fontSize:9,textTransform:"uppercase",letterSpacing:"0.05em",position:"sticky",top:0,background:T.card}}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sirenasFiltradas.filter(s => !s.online).map(s => {
+                      const fechaOff = s.fechaOffline
+                        ? new Date(s.fechaOffline).toLocaleString("es-AR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})
+                        : "—";
+                      return (
+                        <tr key={s.id} style={{borderBottom:`1px solid rgba(255,255,255,0.04)`}}>
+                          <td style={{padding:"5px 8px",color:T.text2,maxWidth:140,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.direccion}</td>
+                          <td style={{padding:"5px 8px",color:T.muted,whiteSpace:"nowrap"}}>{s.localidad}</td>
+                          <td style={{padding:"5px 8px"}}><span style={{background:"rgba(239,68,68,0.1)",color:T.red,borderRadius:4,padding:"1px 6px",fontSize:9,fontWeight:600}}>{s.modelo}</span></td>
+                          <td style={{padding:"5px 8px",color:T.amber,whiteSpace:"nowrap",fontSize:9}}>{fechaOff}</td>
+                        </tr>
+                      );
+                    })}
+                    {sirenasFiltradas.filter(s => !s.online).length === 0 && (
+                      <tr><td colSpan={4} style={{padding:"16px 8px",textAlign:"center",color:T.green,fontSize:11}}>✓ Todas las sirenas están online</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* ── VISTA MAPA ── */}
+      {vistaTab === "mapa" && (
+        <div style={{position:"relative",height:"calc(100vh - 320px)",minHeight:480,borderRadius:14,overflow:"hidden",border:`1px solid ${T.border}`}}>
+          <style>{`
+            .sirena-tooltip { background: #16162a; border: 1px solid rgba(139,92,246,0.3); color: #e2e8f0; font-family: Inter, sans-serif; font-size: 11px; border-radius: 8px; padding: 6px 10px; }
+            .sirena-tooltip::before { display: none; }
+            .leaflet-popup-content-wrapper { background: #16162a !important; border: 1px solid rgba(139,92,246,0.3) !important; border-radius: 10px !important; box-shadow: 0 4px 20px rgba(0,0,0,0.5) !important; }
+            .leaflet-popup-tip { background: #16162a !important; }
+            .leaflet-popup-close-button { color: #64748b !important; }
+          `}</style>
+          <div ref={mapRef} style={{width:"100%",height:"100%"}}/>
+          {/* Leyenda */}
+          <div style={{position:"absolute",bottom:40,left:12,background:"rgba(10,10,18,0.93)",border:`1px solid ${T.border}`,borderRadius:10,padding:"10px 14px",zIndex:999,fontSize:10,fontFamily:"'Inter',sans-serif"}}>
+            <div style={{color:T.muted,letterSpacing:"0.1em",fontWeight:600,textTransform:"uppercase",marginBottom:8,fontSize:9}}>Estado</div>
+            {[["#10b981","● Online"],["#ef4444","● Offline"]].map(([c,l])=>(
+              <div key={l} style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
+                <div style={{width:8,height:8,borderRadius:"50%",background:c,boxShadow:`0 0 5px ${c}88`}}/>
+                <span style={{color:T.text2}}>{l}</span>
+              </div>
+            ))}
+            <div style={{borderTop:`1px solid ${T.border}`,marginTop:8,paddingTop:8,color:T.muted,fontSize:9,letterSpacing:"0.1em",fontWeight:600,textTransform:"uppercase",marginBottom:6}}>Zonas (% online)</div>
+            {[["#10b981","≥ 95%"],["#f59e0b","80–94%"],["#ef4444","< 80%"]].map(([c,l])=>(
+              <div key={l} style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
+                <div style={{width:10,height:8,borderRadius:2,background:c,opacity:0.6}}/>
+                <span style={{color:T.text2}}>{l}</span>
+              </div>
+            ))}
+          </div>
+          {/* Contador overlay */}
+          <div style={{position:"absolute",top:12,left:12,background:"rgba(10,10,18,0.93)",border:`1px solid ${T.border}`,borderRadius:10,padding:"8px 14px",zIndex:999,fontSize:11,fontFamily:"'Inter',sans-serif",display:"flex",gap:16}}>
+            <span style={{color:T.green,fontWeight:700}}>{sirenasFiltradas.filter(s=>s.online&&s.lat).length} online</span>
+            <span style={{color:T.red,fontWeight:700}}>{sirenasFiltradas.filter(s=>!s.online&&s.lat).length} offline</span>
+            {filtroCgm && <span style={{color:"#38bdf8",fontWeight:700}}>{filtroCgm}</span>}
+          </div>
+        </div>
+      )}
+
+      {/* ── VISTA TABLA ── */}
+      {vistaTab === "tabla" && (
+        <Card title={`Detalle Completo · ${sirenasFiltradas.length} sirenas`} icon="📋">
+          <div style={{overflowX:"auto",maxHeight:520,overflowY:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:10,fontFamily:"'Inter',sans-serif"}}>
+              <thead>
+                <tr style={{borderBottom:`1px solid ${T.border}`}}>
+                  {["Estado","Modelo","Localidad","Dirección","RSSI","Firmware","Últ. online","Últ. offline"].map(h=>(
+                    <th key={h} style={{textAlign:"left",padding:"5px 10px",color:T.muted,fontWeight:600,fontSize:9,textTransform:"uppercase",letterSpacing:"0.05em",position:"sticky",top:0,background:T.card,whiteSpace:"nowrap"}}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {sirenasFiltradas.map(s => {
+                  const rssiColor = s.rssi == null ? T.muted : s.rssi >= -65 ? T.green : s.rssi >= -75 ? "#38bdf8" : s.rssi >= -85 ? T.amber : T.red;
+                  const fmtFecha = f => f ? new Date(f).toLocaleString("es-AR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}) : "—";
+                  return (
+                    <tr key={s.id} style={{borderBottom:`1px solid rgba(255,255,255,0.04)`,background:s.online?"transparent":"rgba(239,68,68,0.03)"}}>
+                      <td style={{padding:"6px 10px"}}>
+                        <span style={{display:"inline-flex",alignItems:"center",gap:5,background:s.online?"rgba(16,185,129,0.1)":"rgba(239,68,68,0.1)",color:s.online?T.green:T.red,borderRadius:5,padding:"2px 8px",fontSize:9,fontWeight:700}}>
+                          <span style={{width:5,height:5,borderRadius:"50%",background:s.online?T.green:T.red,display:"inline-block"}}/>
+                          {s.online?"Online":"Offline"}
+                        </span>
+                      </td>
+                      <td style={{padding:"6px 10px",color:T.text2,whiteSpace:"nowrap"}}>{s.modelo}</td>
+                      <td style={{padding:"6px 10px",color:T.muted,whiteSpace:"nowrap"}}>{s.localidad}</td>
+                      <td style={{padding:"6px 10px",color:T.text2,maxWidth:180,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.direccion}</td>
+                      <td style={{padding:"6px 10px",color:rssiColor,fontWeight:600,whiteSpace:"nowrap"}}>{s.rssi != null ? `${s.rssi} dBm` : "—"}</td>
+                      <td style={{padding:"6px 10px",color:T.muted,whiteSpace:"nowrap",fontSize:9}}>{s.firmware}</td>
+                      <td style={{padding:"6px 10px",color:T.green, fontSize:9,whiteSpace:"nowrap"}}>{fmtFecha(s.fechaOnline)}</td>
+                      <td style={{padding:"6px 10px",color:s.online?T.muted:T.red,fontSize:9,whiteSpace:"nowrap"}}>{fmtFecha(s.fechaOffline)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 // ─── APP PRINCIPAL ────────────────────────────────────────────────────────────
 export default function App() {
   const [allData, setAllData] = useState([]);
@@ -1227,6 +1716,7 @@ export default function App() {
     {id:"temporal",  label:"Temporal",  icon:"◷"},
     {id:"cgm",       label:"Por Zona",  icon:"◉"},
     {id:"usuarios",  label:"Usuarios",  icon:"◍"},
+    { id:"sirenas", label:"Sirenas", icon:"📡" }
   ];
 
   const isUsuariosTab = view === "usuarios";
@@ -1350,6 +1840,7 @@ export default function App() {
               {view==="temporal"  && <ViewTemporal  data={filteredData}/>}
               {view==="cgm"       && <ViewCGM       data={filteredData}/>}
               {view==="usuarios"  && <ViewUsuarios/>}
+              {view==="sirenas" && <ViewSirenas leafletReady={leafletReady}/>}
               {view==="mapa"      && (leafletReady
                 ? <ViewMapa data={dataForMap} filters={filters} setFilters={setFilters}/>
                 : <div style={{color:T.muted,fontSize:12,padding:20}}>Cargando mapa…</div>
