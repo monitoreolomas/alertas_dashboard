@@ -1177,27 +1177,37 @@ async function cargarSirenas() {
   try {
     const PAGE = 15;
     const populate = encodeURIComponent(JSON.stringify([{ path: "localidad", select: "nombre" }]));
+    const headers = { Authorization: `Bearer ${NOVIT_TOKEN}` };
 
-    // Primera request para obtener total
-    const first = await fetch(`${SIRENAS_API}?limit=${PAGE}&page=1&populate=${populate}`, {
-      headers: { Authorization: `Bearer ${NOVIT_TOKEN}` },
-    });
-    const firstJson = await first.json();
+    // Obtener total
+    const firstRes = await fetch(`${SIRENAS_API}?limit=${PAGE}&page=1&populate=${populate}`, { headers });
+    const firstJson = await firstRes.json();
     const total = firstJson.totalCount || 0;
     const totalPages = Math.ceil(total / PAGE);
 
-    // Páginas restantes en paralelo
-    const restPages = Array.from({ length: totalPages - 1 }, (_, i) => i + 2);
-    const results = await Promise.all(
-      restPages.map(p =>
-        fetch(`${SIRENAS_API}?limit=${PAGE}&page=${p}&populate=${populate}`, {
-          headers: { Authorization: `Bearer ${NOVIT_TOKEN}` },
-        }).then(r => r.json()).then(j => j.datos || [])
-      )
-    );
+    let all = [...(firstJson.datos || [])];
 
-    const all = [...(firstJson.datos || []), ...results.flat()];
-    setSirenas(all);
+    // Lotes de 10 páginas en paralelo para no saturar el rate limit
+    const BATCH = 10;
+    for (let i = 2; i <= totalPages; i += BATCH) {
+      const batch = Array.from(
+        { length: Math.min(BATCH, totalPages - i + 1) },
+        (_, j) => i + j
+      );
+      const results = await Promise.all(
+        batch.map(p =>
+          fetch(`${SIRENAS_API}?limit=${PAGE}&page=${p}&populate=${populate}`, { headers })
+            .then(r => r.json())
+            .then(j => j.datos || [])
+            .catch(() => [])
+        )
+      );
+      all = [...all, ...results.flat()];
+    }
+
+    // Deduplicar por _id por si hay solapamiento
+    const unique = Array.from(new Map(all.map(s => [s._id, s])).values());
+    setSirenas(unique);
     setUltimaAct(new Date().toLocaleTimeString("es-AR"));
     setEstado("ok");
   } catch (e) {
