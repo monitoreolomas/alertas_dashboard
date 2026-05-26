@@ -184,21 +184,22 @@ async function traerTodosDeAPI() {
   let rows = first.datos.map(normalizarUsuarioAPI);
   let page = 2;
 
-  while (rows.length < first.totalCount) {
-    const batch = [];
-    for (let p = page; p < page + PARALLEL_REQ; p++) {
-      batch.push(fetchPage(p));
-    }
-    const results = await Promise.all(batch);
-    let done = false;
-    for (const { datos } of results) {
-      rows.push(...datos.map(normalizarUsuarioAPI));
-      if (datos.length < BATCH_SIZE) { done = true; break; }
-    }
-    log(`  Fetched: ${rows.length.toLocaleString()}`);
-    if (done) break;
-    page += PARALLEL_REQ;
+while (rows.length < first.totalCount) {
+  const batch = [];
+  for (let p = page; p < page + PARALLEL_REQ; p++) {
+    batch.push(fetchPage(p));
   }
+  const results = await Promise.all(batch);
+  let done = false;
+  for (const { datos } of results) {
+    rows.push(...datos.map(normalizarUsuarioAPI));
+    if (datos.length < BATCH_SIZE) { done = true; break; }
+  }
+  log(`  Fetched: ${rows.length.toLocaleString()}`);
+  // ← agregar esta línea: si ya alcanzamos o superamos el total, cortamos
+  if (done || rows.length >= first.totalCount) break;
+  page += PARALLEL_REQ;
+}
 
   // Log resumen por appType
   const byType = rows.reduce((acc, r) => {
