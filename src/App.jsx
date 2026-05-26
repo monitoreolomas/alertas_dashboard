@@ -1175,14 +1175,7 @@ const [filtroEstado, setFiltroEstado] = useState(""); // "" | "online" | "offlin
 async function cargarSirenas() {
   setEstado("cargando");
   try {
-    const populate = encodeURIComponent(JSON.stringify({
-      path: "localidad",
-      select: "nombre"
-    }));
-    
-    // Sin "select" restrictivo → trae TODOS los campos
-    const url = `${SIRENAS_API}?limit=2000&page=1&populate=${populate}`;
-    
+    const url = `${SIRENAS_API}?limit=2000&page=1`;
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${NOVIT_TOKEN}` },
     });
@@ -1206,23 +1199,24 @@ async function cargarSirenas() {
   }, []);
 
   // ── Normalizar ─────────────────────────────────────────────────────────────
-  const sirenasNorm = useMemo(() => sirenas.map(s => ({
-    id:           s._id,
-    online:       s.online === true,
-    activa:       s.activa !== false,
-    modelo:       s.modeloSirena || s.tipo || "Sin modelo",
-    localidad: s.localidad?.nombre?.trim() || "Sin localidad",
-    direccion:    s.direccionManual || s.direccionGps || "—",
-    lat:          s.ubicacionGps?.lat ?? s.ubicacionManual?.lat ?? null,
-    lng:          s.ubicacionGps?.lng ?? s.ubicacionManual?.lng ?? null,
-    rssi:         typeof s.rssi === "number" ? s.rssi : null,
-    firmware:     s.versionFirmware || "—",
-    acumOnline:   s.acumuladoOnline  || 0,
-    acumOffline:  s.acumuladoOffline || 0,
-    errorAct:     s.errorActualizacion === true,
-    fechaOnline:  s.fechaOnline  || null,
-    fechaOffline: s.fechaOffline || null,
-  })), [sirenas]);
+// REEMPLAZAR sirenasNorm:
+const sirenasNorm = useMemo(() => sirenas.map(s => ({
+  id:           s._id,
+  online:       s.online === true,
+  activa:       s.activa !== false,
+  modelo:       s.modeloSirena || s.tipo || "Sin modelo",
+  localidad:    s.localidad?.nombre?.trim() || "Sin localidad",
+  direccion:    s.direccionManual || s.direccionGps || "—",
+  lat:          s.ubicacionGps?.lat ?? s.ubicacionManual?.lat ?? null,
+  lng:          s.ubicacionGps?.lng ?? s.ubicacionManual?.lng ?? null,
+  rssi:         null,        // campo no disponible en esta API
+  firmware:     "—",         // campo no disponible en esta API
+  acumOnline:   0,
+  acumOffline:  0,
+  errorAct:     s.errorActualizacion === true,
+  fechaOnline:  s.fechaOnline  || null,
+  fechaOffline: s.fechaOffline || null,
+})), [sirenas]);
 
   // ── Filtro por localidad ───────────────────────────────────────────────────
 const sirenasFiltradas = useMemo(() => {
