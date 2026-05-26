@@ -1,23 +1,9 @@
 #!/usr/bin/env node
-/**
- * sync-sirenas.mjs
- * ─────────────────────────────────────────────────────────────────────────────
- * Pipeline completo (una sola vez al día):
- *   1. Trae todas las sirenas de la API Novit
- *   2. TRUNCATE sirenas_cache
- *   3. INSERT de todos los registros
- * ─────────────────────────────────────────────────────────────────────────────
- * Uso:
- *   node sync-sirenas.mjs            → ejecución normal
- *   node sync-sirenas.mjs --dry-run  → sin escribir en Supabase
- */
-
 import { createClient } from "@supabase/supabase-js";
 import fetch            from "node-fetch";
 import "dotenv/config";
 import { WebSocket }    from "ws";
 
-// ── Env ───────────────────────────────────────────────────────────────────────
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const NOVIT_TOKEN  = process.env.NOVIT_TOKEN;
@@ -28,15 +14,13 @@ if (!SUPABASE_URL || !SUPABASE_KEY || !NOVIT_TOKEN) {
   process.exit(1);
 }
 
-// ── Config ────────────────────────────────────────────────────────────────────
-const BATCH_SIZE   = 500;
-const PARALLEL_REQ = 3;
+const BATCH_SIZE   = 15;
+const PARALLEL_REQ = 8;
 const INSERT_CHUNK = 200;
 const DRY_RUN      = process.argv.includes("--dry-run");
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, { global: { WebSocket } });
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 function log(msg) {
   console.log(`[${new Date().toLocaleTimeString("es-AR")}] ${msg}`);
 }
@@ -65,15 +49,12 @@ function limpiarJsonStr(rows) {
   return JSON.parse(json);
 }
 
-// ── Normalización ─────────────────────────────────────────────────────────────
 function normalizarSirena(s) {
   const d = sanitizar(s);
 
-  // idLocalidad puede venir como objeto (con populate) o como string ID
-  const localidadId   = typeof d?.idLocalidad === "object" ? d?.idLocalidad?._id   : d?.idLocalidad;
-  const localidadNombre = typeof d?.idLocalidad === "object" ? d?.idLocalidad?.nombre : null;
+  const localidadId     = d?.idLocalidad || null;
+  const localidadNombre = d?.localidad?.nombre?.trim() || null;
 
-  // Coordenadas: preferir ubicacionGps, fallback a ubicacionManual o geojson
   const lat = d?.ubicacionGps?.lat ?? d?.ubicacionManual?.lat ?? d?.geojson?.coordinates?.[1] ?? null;
   const lng = d?.ubicacionGps?.lng ?? d?.ubicacionManual?.lng ?? d?.geojson?.coordinates?.[0] ?? null;
 
@@ -107,15 +88,9 @@ function normalizarSirena(s) {
   };
 }
 
-// ── PASO 1: Fetch API ─────────────────────────────────────────────────────────
 function buildUrl(page) {
-  const populate = JSON.stringify([
-    { path: "idLocalidad", select: "nombre" },
-  ]);
-  return (
-    `${SIRENAS_API}?limit=${BATCH_SIZE}&page=${page}` +
-    `&populate=${encodeURIComponent(populate)}`
-  );
+  const populate = JSON.stringify([{ path: "localidad", select: "nombre" }]);
+  return `${SIRENAS_API}?limit=${BATCH_SIZE}&page=${page}&populate=${encodeURIComponent(populate)}`;
 }
 
 async function fetchPage(page, intentos = 3) {
@@ -139,14 +114,16 @@ async function traerTodasDeAPI() {
   log("── PASO 1: Trayendo sirenas de la API ──");
 
   const first = await fetchPage(1);
-  log(`  totalCount: ${first.totalCount.toLocaleString()}`);
+  const totalEsperado = first.totalCount;
+  log(`  totalCount: ${totalEsperado.toLocaleString()}`);
 
-  let rows = first.datos.map(normalizarSirena);
+  let rows = [...first.datos.map(normalizarSirena)];
+  const totalPages = Math.ceil(totalEsperado / BATCH_SIZE);
+
   let page = 2;
-
-  while (rows.length < first.totalCount) {
+  while (page <= totalPages) {
     const batch = [];
-    for (let p = page; p < page + PARALLEL_REQ; p++) {
+    for (let p = page; p < page + PARALLEL_REQ && p <= totalPages; p++) {
       batch.push(fetchPage(p));
     }
     const results = await Promise.all(batch);
@@ -155,26 +132,32 @@ async function traerTodasDeAPI() {
       if (datos.length > 0) gotAny = true;
       rows.push(...datos.map(normalizarSirena));
     }
-    log(`  Fetched: ${rows.length.toLocaleString()} / ${first.totalCount.toLocaleString()}`);
-    if (!gotAny || rows.length >= first.totalCount) break;
+    log(`  Fetched: ${rows.length.toLocaleString()} / ${totalEsperado.toLocaleString()}`);
+    if (!gotAny) break;
     page += PARALLEL_REQ;
+    if (page <= totalPages) await new Promise(r => setTimeout(r, 150));
   }
 
-  // Resumen
-  const online  = rows.filter(r => r.online).length;
-  const offline = rows.filter(r => !r.online).length;
-  const byModelo = rows.reduce((acc, r) => {
+  const unique = Array.from(new Map(rows.map(r => [r.id, r])).values());
+  log(`  Después de deduplicar: ${unique.length.toLocaleString()} / ${totalEsperado.toLocaleString()}`);
+
+  if (unique.length < totalEsperado) {
+    log(`  ⚠ Faltan ${totalEsperado - unique.length} sirenas — continuando con lo obtenido`);
+  }
+
+  const online   = unique.filter(r => r.online).length;
+  const offline  = unique.filter(r => !r.online).length;
+  const byModelo = unique.reduce((acc, r) => {
     const k = r.modelo_sirena || "null";
     acc[k] = (acc[k] || 0) + 1;
     return acc;
   }, {});
   log(`  Online: ${online} · Offline: ${offline}`);
   log(`  Por modelo: ${JSON.stringify(byModelo)}`);
-  log(`Total API: ${rows.length.toLocaleString()} sirenas`);
-  return rows;
+  log(`Total API: ${unique.length.toLocaleString()} sirenas`);
+  return unique;
 }
 
-// ── PASO 2 + 3: Truncate + Insert ────────────────────────────────────────────
 async function insertChunk(rows) {
   if (DRY_RUN) { log(`  [DRY-RUN] ${rows.length} filas`); return rows.length; }
 
@@ -228,11 +211,9 @@ async function truncateEInsert(rows) {
       log(`  Insertado: ${written.toLocaleString()} / ${rows.length.toLocaleString()}`);
     }
   }
-
   return written;
 }
 
-// ── MAIN ──────────────────────────────────────────────────────────────────────
 async function main() {
   const t0 = Date.now();
   log(`╔══ sync-sirenas.mjs iniciando${DRY_RUN ? " (DRY-RUN)" : ""} ══╗`);
