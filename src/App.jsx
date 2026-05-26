@@ -569,15 +569,6 @@ function ViewMapa({ data, filters, setFilters }) {
 }
 
 // ─── VISTA USUARIOS ───────────────────────────────────────────────────────────
-const AGE_RANGES = [
-  { label:"18–25", min:18,  max:25,  color:"#38bdf8" },
-  { label:"26–35", min:26,  max:35,  color:"#8b5cf6" },
-  { label:"36–45", min:36,  max:45,  color:"#10b981" },
-  { label:"46–55", min:46,  max:55,  color:"#f59e0b" },
-  { label:"56–65", min:56,  max:65,  color:"#ef4444" },
-  { label:"66–75", min:66,  max:75,  color:"#f472b6" },
-  { label:"76–100",min:76,  max:100, color:"#a78bfa" },
-];
 
 function AgeBarChart({ ranges, total }) {
   if (!ranges || ranges.length === 0) return <div style={{color:T.muted,fontSize:11,fontFamily:"'Inter',sans-serif"}}>Sin datos de edad válidos</div>;
@@ -610,17 +601,80 @@ function AgeBarChart({ ranges, total }) {
   );
 }
 
+// ─── VISTA USUARIOS ───────────────────────────────────────────────────────────
+// Reemplazar la función ViewUsuarios completa en App.jsx
+
+const AGE_RANGES = [
+  { label:"18–25", min:18,  max:25,  color:"#38bdf8" },
+  { label:"26–35", min:26,  max:35,  color:"#8b5cf6" },
+  { label:"36–45", min:36,  max:45,  color:"#10b981" },
+  { label:"46–55", min:46,  max:55,  color:"#f59e0b" },
+  { label:"56–65", min:56,  max:65,  color:"#ef4444" },
+  { label:"66–75", min:66,  max:75,  color:"#f472b6" },
+  { label:"76–100",min:76,  max:100, color:"#a78bfa" },
+];
+
+// Formato numérico con puntos (35000 → "35.000")
+function fmtNum(n) {
+  if (n == null) return "—";
+  return Math.round(n).toLocaleString("es-AR");
+}
+
+function AgeBarChart({ ranges, total }) {
+  if (!ranges || ranges.length === 0)
+    return <div style={{color:T.muted,fontSize:11,fontFamily:"'Inter',sans-serif"}}>Sin datos de edad válidos</div>;
+  const maxVal = Math.max(...ranges.map(r => r.value), 1);
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:10}}>
+      {ranges.map(r => {
+        const pct = total > 0 ? ((r.value / total) * 100).toFixed(1) : 0;
+        const barW = (r.value / maxVal) * 100;
+        return (
+          <div key={r.label}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
+              <span style={{fontSize:12,fontWeight:700,color:r.color,fontFamily:"'Inter',sans-serif",minWidth:60}}>{r.label}</span>
+              <span style={{fontSize:11,color:T.text,fontFamily:"'Inter',sans-serif",fontWeight:600}}>{r.value.toLocaleString("es-AR")}</span>
+              <span style={{fontSize:10,color:T.muted,fontFamily:"'Inter',sans-serif",minWidth:40,textAlign:"right"}}>{pct}%</span>
+            </div>
+            <div style={{height:18,background:"rgba(255,255,255,0.04)",borderRadius:5,overflow:"hidden"}}>
+              <div style={{
+                height:"100%", width:`${barW}%`,
+                background:`linear-gradient(90deg,${r.color}cc,${r.color})`,
+                borderRadius:5, transition:"width 0.6s ease",
+              }}/>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function ViewUsuarios() {
-  const [estado, setEstado] = useState("idle");
-  const [usuarios, setUsuarios] = useState([]);
-  const [resumen, setResumen] = useState(null);
+  const [estado, setEstado]                   = useState("idle");
+  const [usuarios, setUsuarios]               = useState([]);
+  const [resumen, setResumen]                 = useState(null);
   const [ultimaActualizacion, setUltimaActualizacion] = useState(null);
   const [paginaRecientes, setPaginaRecientes] = useState(0);
   const POR_PAGINA = 8;
 
+  // ── Default: 1° del mes vigente → hoy, sin fechas futuras ─────────────────
+  const todayAR = useMemo(() => {
+    // Fecha actual en Argentina (UTC-3)
+    const now = new Date();
+    const arOffset = -3 * 60;
+    const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+    const ar  = new Date(utc + arOffset * 60000);
+    return ar.toISOString().slice(0, 10);
+  }, []);
+
+  const firstOfMonthAR = useMemo(() => {
+    return todayAR.slice(0, 8) + "01";
+  }, [todayAR]);
+
   const [userFilters, setUserFilters] = useState({
-    fechaDesde: "",
-    fechaHasta: "",
+    fechaDesde: firstOfMonthAR,
+    fechaHasta: todayAR,
     cgm: "",
   });
   const [userFiltersOpen, setUserFiltersOpen] = useState(false);
@@ -632,7 +686,6 @@ function ViewUsuarios() {
         .from("v_usuarios_resumen")
         .select("*")
         .single();
-
       if (resumenErr) console.warn("Sin vista resumen:", resumenErr.message);
       setResumen(resumenData || null);
 
@@ -643,15 +696,9 @@ function ViewUsuarios() {
         .order("fecha_creacion", { ascending: false })
         .limit(50000);
 
-      if (userFilters.fechaDesde) {
-        query = query.gte("fecha_creacion", userFilters.fechaDesde);
-      }
-      if (userFilters.fechaHasta) {
-        query = query.lte("fecha_creacion", userFilters.fechaHasta + "T23:59:59");
-      }
-      if (userFilters.cgm) {
-        query = query.eq("localidad", userFilters.cgm);
-      }
+      if (userFilters.fechaDesde) query = query.gte("fecha_creacion", userFilters.fechaDesde);
+      if (userFilters.fechaHasta) query = query.lte("fecha_creacion", userFilters.fechaHasta + "T23:59:59");
+      if (userFilters.cgm)        query = query.eq("localidad", userFilters.cgm);
 
       const { data, error } = await query;
       if (error) throw error;
@@ -660,7 +707,7 @@ function ViewUsuarios() {
       setUltimaActualizacion(new Date().toLocaleTimeString("es-AR"));
       setEstado("ok");
     } catch (e) {
-      console.error("Error cargando usuarios desde Supabase:", e);
+      console.error("Error cargando usuarios:", e);
       setEstado("error");
     }
   }
@@ -669,17 +716,152 @@ function ViewUsuarios() {
 
   const usuariosNormalizados = useMemo(() => usuarios.map(u => ({
     ...u,
-    nombre:          u.nombre    || "",
-    apellido:        u.apellido  || "",
-    sexo:            u.sexo === true ? "M" : u.sexo === false ? "F" : "Sin dato",
+    nombre:          u.nombre   || "",
+    apellido:        u.apellido || "",
+    // sexo: en Supabase viene "Masculino"/"Femenino"/null o true/false
+    sexo: (() => {
+      const s = u.sexo;
+      if (s === true  || s === "true"  || s === "Masculino" || s === "M") return "Masculino";
+      if (s === false || s === "false" || s === "Femenino"  || s === "F") return "Femenino";
+      return "Sin dato";
+    })(),
     edad:            calcularEdad(u.fecha_nacimiento),
     categoriaFix:    u.categoria_nombre || "Sin categoría",
-    plataforma:      u.app_type || "Sin dato",
+    // plataforma: normalizar null/"null"/undefined → "Sin dato"
+    plataforma: (() => {
+      const p = u.app_type;
+      if (!p || p === "null") return "Sin dato";
+      return p;
+    })(),
     localidadNombre: u.localidad || "Sin dato",
     fechaCreacion:   u.fecha_creacion,
     dniEscaneado:    u.dni_escaneado,
   })), [usuarios]);
 
+  // ── Totales del resumen (siempre el total real del sistema) ────────────────
+  const totalSistema = resumen?.total ? Number(resumen.total) : null;
+  const ultimoSync   = resumen?.ultimo_sync
+    ? new Date(resumen.ultimo_sync).toLocaleString("es-AR")
+    : null;
+
+  // ── Métricas sobre datos filtrados ─────────────────────────────────────────
+  const filteredCount = usuariosNormalizados.length;
+
+  const edadesValidas = usuariosNormalizados
+    .map(u => u.edad)
+    .filter(e => e != null && !isNaN(e) && e >= 18 && e <= 100);
+
+  const edadProm = edadesValidas.length
+    ? (edadesValidas.reduce((a,b)=>a+b,0) / edadesValidas.length).toFixed(1)
+    : "—";
+  const edadMin = edadesValidas.length ? Math.min(...edadesValidas) : "—";
+  const edadMax = edadesValidas.length ? Math.max(...edadesValidas) : "—";
+
+  const porRangoEdad = AGE_RANGES.map(r => ({
+    label: r.label, color: r.color,
+    value: edadesValidas.filter(e => e >= r.min && e <= r.max).length,
+  })).filter(r => r.value > 0);
+
+  // Sexo — dinámico al filtro
+  const porSexo = useMemo(() => {
+    const acc = {};
+    usuariosNormalizados.forEach(u => {
+      acc[u.sexo] = (acc[u.sexo] || 0) + 1;
+    });
+    return acc;
+  }, [usuariosNormalizados]);
+
+  const sexoColors   = { "Masculino":"#38bdf8", "Femenino":"#f472b6", "Sin dato":T.muted };
+  const sexoMaxVal   = Math.max(...Object.values(porSexo), 1);
+
+  // Plataforma — dinámico al filtro
+  const porPlataforma = useMemo(() => {
+    const acc = {};
+    usuariosNormalizados.forEach(u => {
+      acc[u.plataforma] = (acc[u.plataforma] || 0) + 1;
+    });
+    return acc;
+  }, [usuariosNormalizados]);
+
+  const platMaxVal = Math.max(...Object.values(porPlataforma), 1);
+
+  // Localidad
+  const porLocalidad = useMemo(() => {
+    const acc = {};
+    usuariosNormalizados.forEach(u => {
+      acc[u.localidadNombre] = (acc[u.localidadNombre] || 0) + 1;
+    });
+    return acc;
+  }, [usuariosNormalizados]);
+  const topLocalidades = topN(porLocalidad, 10);
+  const locMax = Math.max(...topLocalidades.map(([,v])=>v), 1);
+
+  // DNI
+  const conDni = usuariosNormalizados.filter(u => u.dniEscaneado).length;
+  const sinDni = filteredCount - conDni;
+
+  // Categorías
+  const categorias = useMemo(() => {
+    const acc = {};
+    usuariosNormalizados.forEach(u => {
+      acc[u.categoriaFix] = (acc[u.categoriaFix] || 0) + 1;
+    });
+    return acc;
+  }, [usuariosNormalizados]);
+  const topCategorias = topN(categorias, 8);
+
+  // Evolución de altas
+  const altasPorFecha = useMemo(() => {
+    const acc = {};
+    usuariosNormalizados.forEach(u => {
+      const f = u.fechaCreacion?.slice(0,10);
+      if (f) acc[f] = (acc[f] || 0) + 1;
+    });
+    return acc;
+  }, [usuariosNormalizados]);
+  const altasEntries = Object.entries(altasPorFecha).sort((a,b) => a[0].localeCompare(b[0]));
+  const altasVals    = altasEntries.map(([,v]) => v);
+
+  // Recientes
+  const recientes = useMemo(() =>
+    [...usuariosNormalizados].sort((a,b) => new Date(b.fechaCreacion) - new Date(a.fechaCreacion)),
+    [usuariosNormalizados]
+  );
+  const pageStart         = paginaRecientes * POR_PAGINA;
+  const recientesPagina   = recientes.slice(pageStart, pageStart + POR_PAGINA);
+  const totalPaginas      = Math.ceil(recientes.length / POR_PAGINA);
+
+  // Localidad options para el select
+  const localidadOptions = useMemo(() => [...new Set(
+    usuariosNormalizados.map(u => u.localidadNombre).filter(l => l && l !== "Sin dato")
+  )].sort(), [usuariosNormalizados]);
+
+  // Gráfico evolución
+  const W=700, H=90, PAD=8;
+  const altasMax = Math.max(...altasVals, 1);
+  const altasPts = altasVals.map((v,i) => [
+    PAD + (i/(altasVals.length-1||1))*(W-PAD*2),
+    H - PAD - ((v/altasMax)*(H-PAD*2)),
+  ]);
+  const altasPolyline = altasPts.map(([x,y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  const altasArea = `${PAD},${H} ${altasPolyline} ${W-PAD},${H}`;
+  const altasStep = Math.max(1, Math.floor(altasVals.length/6));
+
+  // Estilos inputs
+  const baseInp = {
+    background:"#0d0d1f", border:`1px solid ${T.border}`, color:T.text,
+    borderRadius:10, padding:"7px 10px", fontSize:12,
+    fontFamily:"'Inter',sans-serif", outline:"none", width:"100%",
+  };
+  const dateInp = { ...baseInp, colorScheme:"dark" };
+  const lbl = {
+    fontSize:11, color:T.text2, fontWeight:600, letterSpacing:"0.05em",
+    textTransform:"uppercase", marginBottom:5,
+    fontFamily:"'Inter',sans-serif", display:"block",
+  };
+  const hasActiveFilters = userFilters.fechaDesde || userFilters.fechaHasta || userFilters.cgm;
+
+  // ── Estados de carga / error ───────────────────────────────────────────────
   if (estado === "cargando") return (
     <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:300,gap:16}}>
       <div style={{width:44,height:44,borderRadius:12,background:`linear-gradient(135deg,${T.accent},${T.accent2})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,opacity:0.6}}>👥</div>
@@ -697,109 +879,23 @@ function ViewUsuarios() {
     </div>
   );
 
-  const filteredCount = usuariosNormalizados.length;
-  const ahora = new Date();
-
-  const totalSistema      = resumen?.total            ? Number(resumen.total)            : null;
-  const altasMesActual    = resumen?.altas_mes_actual ? Number(resumen.altas_mes_actual) : null;
-  const ultimoSync        = resumen?.ultimo_sync
-    ? new Date(resumen.ultimo_sync).toLocaleString("es-AR")
-    : null;
-
-  const edadesValidas = usuariosNormalizados
-    .map(u => u.edad)
-    .filter(e => e != null && !isNaN(e) && e >= 18 && e <= 100);
-
-  const edadProm = edadesValidas.length ? (edadesValidas.reduce((a,b)=>a+b,0)/edadesValidas.length).toFixed(1) : "—";
-  const edadMin  = edadesValidas.length ? Math.min(...edadesValidas) : "—";
-  const edadMax  = edadesValidas.length ? Math.max(...edadesValidas) : "—";
-
-  const porRangoEdad = AGE_RANGES.map(r => ({
-    label: r.label, color: r.color,
-    value: edadesValidas.filter(e => e >= r.min && e <= r.max).length,
-  })).filter(r => r.value > 0);
-
-  const porSexo = usuariosNormalizados.reduce((acc,u) => {
-    acc[u.sexo] = (acc[u.sexo] || 0) + 1;
-    return acc;
-  }, {});
-  const sexoColors = { M:"#38bdf8", F:"#f472b6", "Sin dato":T.muted };
-
-  const porLocalidad = {};
-  usuariosNormalizados.forEach(u => {
-    porLocalidad[u.localidadNombre] = (porLocalidad[u.localidadNombre] || 0) + 1;
-  });
-  const topLocalidades = topN(porLocalidad, 10);
-  const locMax = Math.max(...topLocalidades.map(([,v])=>v), 1);
-
-  const porPlataforma = usuariosNormalizados.reduce((acc,u) => {
-    acc[u.plataforma] = (acc[u.plataforma] || 0) + 1;
-    return acc;
-  }, {});
-
-  const conDni = usuariosNormalizados.filter(u => u.dniEscaneado).length;
-  const sinDni = filteredCount - conDni;
-
-  const categorias = usuariosNormalizados.reduce((acc, u) => {
-    acc[u.categoriaFix] = (acc[u.categoriaFix] || 0) + 1;
-    return acc;
-  }, {});
-  const topCategorias = topN(categorias, 8);
-
-  const altasPorFecha = {};
-  usuariosNormalizados.forEach(u => {
-    const f = u.fechaCreacion?.slice(0,10);
-    if (f) altasPorFecha[f] = (altasPorFecha[f] || 0) + 1;
-  });
-  const altasEntries = Object.entries(altasPorFecha).sort((a,b) => a[0].localeCompare(b[0]));
-  const altasVals    = altasEntries.map(([,v]) => v);
-
-  const hayFiltroFecha = !!(userFilters.fechaDesde || userFilters.fechaHasta);
-  const kpiAltasLabel  = hayFiltroFecha ? "Altas en el Período" : "Altas Este Mes";
-  const kpiAltasValue  = hayFiltroFecha ? filteredCount : (altasMesActual ?? filteredCount);
-  const kpiAltasSub    = hayFiltroFecha
-    ? `${userFilters.fechaDesde || "–"} → ${userFilters.fechaHasta || "–"}`
-    : "en el mes actual";
-
-  const recientes = [...usuariosNormalizados].sort((a,b) => new Date(b.fechaCreacion) - new Date(a.fechaCreacion));
-  const pageStart = paginaRecientes * POR_PAGINA;
-  const recientesPagina = recientes.slice(pageStart, pageStart + POR_PAGINA);
-  const totalPaginas = Math.ceil(recientes.length / POR_PAGINA);
-
-  const W=700, H=90, PAD=8;
-  const altasMax = Math.max(...altasVals, 1);
-  const altasPts = altasVals.map((v,i) => [
-    PAD + (i/(altasVals.length-1||1))*(W-PAD*2),
-    H - PAD - ((v/altasMax)*(H-PAD*2)),
-  ]);
-  const altasPolyline = altasPts.map(([x,y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
-  const altasArea = `${PAD},${H} ${altasPolyline} ${W-PAD},${H}`;
-  const altasStep = Math.max(1, Math.floor(altasVals.length/6));
-
-  const baseInp = {
-    background:"#0d0d1f", border:`1px solid ${T.border}`, color:T.text,
-    borderRadius:10, padding:"7px 10px", fontSize:12,
-    fontFamily:"'Inter',sans-serif", outline:"none", width:"100%",
-  };
-  const dateInp = { ...baseInp, colorScheme:"dark" };
-  const lbl = {fontSize:11,color:T.text2,fontWeight:600,letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:5,fontFamily:"'Inter',sans-serif",display:"block"};
-  const hasActiveFilters = userFilters.fechaDesde || userFilters.fechaHasta || userFilters.cgm;
-
-  const localidadOptions = [...new Set(
-    usuariosNormalizados.map(u => u.localidadNombre).filter(l => l && l !== "Sin dato")
-  )].sort();
-
   return (
     <div>
-      {/* Filters panel */}
+      {/* ── Filtros ── */}
       <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,marginBottom:16,overflow:"hidden"}}>
-        <button onClick={()=>setUserFiltersOpen(o=>!o)} style={{width:"100%",background:"transparent",border:"none",padding:"12px 18px",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",color:T.text2}}>
+        <button onClick={()=>setUserFiltersOpen(o=>!o)}
+          style={{width:"100%",background:"transparent",border:"none",padding:"12px 18px",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",color:T.text2}}>
           <span style={{fontSize:12,fontWeight:600,fontFamily:"'Inter',sans-serif",letterSpacing:"0.05em",display:"flex",alignItems:"center",gap:8}}>
             <span>⚙</span> FILTROS DE USUARIOS
-            {hasActiveFilters && <span style={{background:T.accent,color:"#fff",borderRadius:20,padding:"1px 8px",fontSize:10,fontWeight:700}}>activos · {filteredCount.toLocaleString()} usuarios</span>}
+            {hasActiveFilters && (
+              <span style={{background:T.accent,color:"#fff",borderRadius:20,padding:"1px 8px",fontSize:10,fontWeight:700}}>
+                activos · {filteredCount.toLocaleString("es-AR")} usuarios
+              </span>
+            )}
           </span>
           <span style={{fontSize:12,color:T.muted,transition:"transform 0.2s",display:"inline-block",transform:userFiltersOpen?"rotate(180deg)":"rotate(0deg)"}}>▼</span>
         </button>
+
         {userFiltersOpen && (
           <div style={{padding:"0 18px 16px",borderTop:`1px solid rgba(139,92,246,0.1)`}}>
             <div style={{fontSize:10,color:T.muted,fontFamily:"'Inter',sans-serif",marginBottom:12,marginTop:12}}>
@@ -808,13 +904,17 @@ function ViewUsuarios() {
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 2fr auto",gap:14,alignItems:"end"}}>
               <div>
                 <label style={lbl}>Alta desde</label>
-                <input type="date" value={userFilters.fechaDesde}
+                <input type="date"
+                  value={userFilters.fechaDesde}
+                  max={todayAR}
                   onChange={e=>{ setUserFilters(f=>({...f,fechaDesde:e.target.value})); setPaginaRecientes(0); }}
                   style={dateInp}/>
               </div>
               <div>
                 <label style={lbl}>Alta hasta</label>
-                <input type="date" value={userFilters.fechaHasta}
+                <input type="date"
+                  value={userFilters.fechaHasta}
+                  max={todayAR}
                   onChange={e=>{ setUserFilters(f=>({...f,fechaHasta:e.target.value})); setPaginaRecientes(0); }}
                   style={dateInp}/>
               </div>
@@ -828,7 +928,7 @@ function ViewUsuarios() {
                 </select>
               </div>
               <button
-                onClick={()=>{ setUserFilters({fechaDesde:"",fechaHasta:"",cgm:""}); setPaginaRecientes(0); }}
+                onClick={()=>{ setUserFilters({fechaDesde:firstOfMonthAR,fechaHasta:todayAR,cgm:""}); setPaginaRecientes(0); }}
                 style={{background:"rgba(139,92,246,0.12)",border:`1px solid ${T.border}`,color:T.text2,borderRadius:10,padding:"7px 14px",fontSize:11,fontFamily:"'Inter',sans-serif",cursor:"pointer",fontWeight:600,height:34,whiteSpace:"nowrap"}}
               >↺ Resetear</button>
             </div>
@@ -836,39 +936,58 @@ function ViewUsuarios() {
         )}
       </div>
 
-      {/* Header */}
+      {/* ── Header (sin botón Actualizar) ── */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-        <div style={{fontSize:10,color:T.muted,fontFamily:"'Inter',sans-serif"}}>
-          {ultimaActualizacion && <>🕐 Actualizado: {ultimaActualizacion}</>}
-          {ultimoSync && <span style={{marginLeft:12,color:"#475569"}}>· Último sync de Novit: {ultimoSync}</span>}
-          {filteredCount > 0 && <span style={{marginLeft:12}}>· Mostrando: {filteredCount.toLocaleString()} usuarios</span>}
+        <div style={{fontSize:10,color:T.muted,fontFamily:"'Inter',sans-serif",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+          {ultimaActualizacion && <span>🕐 Actualizado: {ultimaActualizacion}</span>}
+          {filteredCount > 0 && <span style={{color:"#475569"}}>· Mostrando: {filteredCount.toLocaleString("es-AR")} usuarios</span>}
         </div>
-        <button onClick={cargarUsuarios}
-          style={{background:"rgba(139,92,246,0.12)",border:`1px solid ${T.border}`,color:T.text2,borderRadius:8,padding:"5px 14px",fontSize:10,fontFamily:"'Inter',sans-serif",cursor:"pointer",fontWeight:600}}>
-          ↺ Actualizar
-        </button>
+        {/* Nota de actualización diaria */}
+        <div style={{fontSize:10,color:T.muted,fontFamily:"'Inter',sans-serif",background:"rgba(16,185,129,0.07)",border:"1px solid rgba(16,185,129,0.2)",borderRadius:8,padding:"4px 12px",display:"flex",alignItems:"center",gap:6}}>
+          <span style={{color:T.green}}>🔄</span>
+          Los usuarios se actualizan todos los días a las 22hs (Argentina)
+        </div>
       </div>
 
-      {/* KPIs */}
+      {/* ── KPIs ── */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(175px,1fr))",gap:12,marginBottom:20}}>
-        <KPI label="Usuarios Totales"   value={totalSistema!=null?fmt(totalSistema):"—"}   sub="total en el sistema"                color={T.accent}  icon="👥"/>
-        <KPI label={kpiAltasLabel}      value={fmt(kpiAltasValue)}                          sub={kpiAltasSub}                        color={T.green}   icon="📈"/>
-        <KPI label="Edad Promedio"
-          value={edadProm!=="—"?`${edadProm} años`:"—"}
-          sub={edadesValidas.length>0?`mín ${edadMin} · máx ${edadMax} · ${edadesValidas.length} con edad`:"Solo 18–100"}
-          color="#38bdf8" icon="🎂"/>
-        <KPI label="Con DNI Escaneado"
-          value={filteredCount>0?`${((conDni/filteredCount)*100).toFixed(0)}%`:"—"}
-          sub={`${fmt(conDni)} de ${fmt(filteredCount)}`}
-          color={T.amber} icon="🪪"/>
+        <KPI
+          label="Usuarios Totales"
+          value={totalSistema != null ? fmtNum(totalSistema) : "—"}
+          sub="total en el sistema"
+          color={T.accent} icon="👥"
+        />
+        <KPI
+          label={userFilters.fechaDesde || userFilters.fechaHasta ? "Altas en el Período" : "Altas Este Mes"}
+          value={fmtNum(filteredCount)}
+          sub={`${userFilters.fechaDesde || "–"} → ${userFilters.fechaHasta || "–"}`}
+          color={T.green} icon="📈"
+        />
+        <KPI
+          label="Edad Promedio"
+          value={edadProm !== "—" ? `${edadProm} años` : "—"}
+          sub={edadesValidas.length > 0
+            ? `mín ${edadMin} · máx ${edadMax} · ${edadesValidas.length} con edad`
+            : "Solo 18–100"}
+          color="#38bdf8" icon="🎂"
+        />
+        <KPI
+          label="Con DNI Escaneado"
+          value={filteredCount > 0 ? `${((conDni/filteredCount)*100).toFixed(0)}%` : "—"}
+          sub={`${fmtNum(conDni)} de ${fmtNum(filteredCount)}`}
+          color={T.amber} icon="🪪"
+        />
       </div>
 
-      {/* Fila 1 */}
+      {/* ── Fila 1: Localidad / Edad / Sexo+Plataforma ── */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1.4fr 0.7fr",gap:14,marginBottom:14}}>
         <Card title="Usuarios por Localidad" icon="📍">
-          {topLocalidades.map(([loc,val]) => (
-            <HBar key={loc} label={loc} value={val} max={locMax} color={T.accent} total={filteredCount}/>
-          ))}
+          {topLocalidades.length === 0
+            ? <div style={{color:T.muted,fontSize:11}}>Sin datos</div>
+            : topLocalidades.map(([loc,val]) => (
+                <HBar key={loc} label={loc} value={val} max={locMax} color={T.accent} total={filteredCount}/>
+              ))
+          }
         </Card>
 
         <Card title="Distribución por Edad (18–100 años)" icon="🎂">
@@ -876,7 +995,7 @@ function ViewUsuarios() {
             Edades fuera de rango o sin fecha se excluyen.
             {edadesValidas.length < filteredCount && (
               <span style={{color:T.amber,marginLeft:6}}>
-                ⚠ {(filteredCount - edadesValidas.length).toLocaleString()} sin dato
+                ⚠ {(filteredCount - edadesValidas.length).toLocaleString("es-AR")} sin dato
               </span>
             )}
           </div>
@@ -885,24 +1004,39 @@ function ViewUsuarios() {
 
         <div style={{display:"flex",flexDirection:"column",gap:12}}>
           <Card title="Sexo" icon="⚤" style={{flex:1}}>
-            {Object.entries(porSexo).map(([s,v]) => (
-              <HBar key={s} label={s==="M"?"Masculino":s==="F"?"Femenino":s} value={v}
-                max={Math.max(...Object.values(porSexo),1)}
-                color={sexoColors[s]||T.muted} total={filteredCount}/>
-            ))}
+            {Object.keys(porSexo).length === 0
+              ? <div style={{color:T.muted,fontSize:11}}>Sin datos</div>
+              : Object.entries(porSexo)
+                  .sort((a,b) => b[1]-a[1])
+                  .map(([s,v]) => (
+                    <HBar key={s} label={s} value={v}
+                      max={sexoMaxVal}
+                      color={sexoColors[s] || T.muted}
+                      total={filteredCount}/>
+                  ))
+            }
           </Card>
           <Card title="Plataforma" icon="📱" style={{flex:1}}>
-            {Object.entries(porPlataforma).slice(0,4).map(([p,v]) => (
-              <HBar key={p} label={p} value={v}
-                max={Math.max(...Object.values(porPlataforma),1)}
-                color={p.toLowerCase().includes("ios")?"#38bdf8":p.toLowerCase().includes("android")?T.green:T.muted}
-                total={filteredCount}/>
-            ))}
+            {Object.keys(porPlataforma).length === 0
+              ? <div style={{color:T.muted,fontSize:11}}>Sin datos</div>
+              : Object.entries(porPlataforma)
+                  .sort((a,b) => b[1]-a[1])
+                  .slice(0, 5)
+                  .map(([p,v]) => (
+                    <HBar key={p} label={p} value={v}
+                      max={platMaxVal}
+                      color={
+                        p.toLowerCase().includes("ios")     ? "#38bdf8" :
+                        p.toLowerCase().includes("android") ? T.green   : T.muted
+                      }
+                      total={filteredCount}/>
+                  ))
+            }
           </Card>
         </div>
       </div>
 
-      {/* Fila 2 */}
+      {/* ── Fila 2: Categorías / DNI ── */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
         <Card title="Categorías Especiales" icon="🏷️">
           {topCategorias.map(([cat,val],i) => {
@@ -922,14 +1056,15 @@ function ViewUsuarios() {
                   <circle cx="40" cy="40" r="28" fill="none" stroke={T.green} strokeWidth="11"
                     strokeDasharray={`${(conDni/filteredCount)*175.9} 175.9`}
                     strokeDashoffset="0"
-                    style={{transform:"rotate(-90deg)",transformOrigin:"40px 40px"}} opacity="0.85"/>
+                    style={{transform:"rotate(-90deg)",transformOrigin:"40px 40px"}}
+                    opacity="0.85"/>
                 )}
                 <circle cx="40" cy="40" r="22" fill={T.card}/>
               </svg>
             </div>
             <div>
               <div style={{fontSize:28,fontWeight:800,color:T.green,fontFamily:"'Inter',sans-serif",lineHeight:1}}>
-                {filteredCount>0?`${((conDni/filteredCount)*100).toFixed(1)}%`:"—"}
+                {filteredCount > 0 ? `${((conDni/filteredCount)*100).toFixed(1)}%` : "—"}
               </div>
               <div style={{fontSize:11,color:T.text2,marginTop:4,fontFamily:"'Inter',sans-serif"}}>con DNI escaneado</div>
             </div>
@@ -939,10 +1074,10 @@ function ViewUsuarios() {
         </Card>
       </div>
 
-      {/* Evolución */}
+      {/* ── Evolución de altas ── */}
       <Card title="Evolución de Altas" icon="📈" style={{marginBottom:14}}>
         {altasVals.length < 2 ? (
-          <div style={{color:T.muted,fontSize:11,fontFamily:"'Inter',sans-serif"}}>Sin suficientes datos para el gráfico</div>
+          <div style={{color:T.muted,fontSize:11,fontFamily:"'Inter',sans-serif"}}>Sin suficientes datos para el período seleccionado</div>
         ) : (
           <svg viewBox={`0 0 ${W} ${H}`} style={{width:"100%",height:90}}>
             <defs>
@@ -954,9 +1089,9 @@ function ViewUsuarios() {
             <polygon points={altasArea} fill="url(#altasGrad)"/>
             <polyline points={altasPolyline} fill="none" stroke={T.green} strokeWidth="2" strokeLinejoin="round"/>
             {altasPts.filter((_,i)=>i%altasStep===0).map(([x,y],i)=>{
-              const idx=i*altasStep;
-              const [fecha]=altasEntries[idx];
-              const d=parseFecha(fecha);
+              const idx = i * altasStep;
+              const [fecha] = altasEntries[idx];
+              const d = parseFecha(fecha);
               return (
                 <g key={i}>
                   <circle cx={x} cy={y} r="2.5" fill={T.green} opacity="0.8"/>
@@ -970,7 +1105,7 @@ function ViewUsuarios() {
         )}
       </Card>
 
-      {/* Tabla últimos registrados */}
+      {/* ── Tabla últimos registrados ── */}
       <Card title="Últimos Usuarios Registrados" icon="🆕">
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:11,fontFamily:"'Inter',sans-serif"}}>
@@ -986,18 +1121,27 @@ function ViewUsuarios() {
                 const nombre    = [u.nombre, u.apellido].filter(Boolean).join(" ") || "Sin nombre";
                 const plat      = u.plataforma;
                 const dniOk     = u.dniEscaneado;
-                const fechaAlta = u.fechaCreacion ? new Date(u.fechaCreacion).toLocaleDateString("es-AR") : "—";
-                const sexoLabel = u.sexo==="M" ? "♂ M" : u.sexo==="F" ? "♀ F" : "—";
+                const fechaAlta = u.fechaCreacion
+                  ? new Date(u.fechaCreacion).toLocaleDateString("es-AR")
+                  : "—";
+                const sexoIcon  = u.sexo === "Masculino" ? "♂" : u.sexo === "Femenino" ? "♀" : "";
+                const sexoColor = u.sexo === "Masculino" ? "#38bdf8" : u.sexo === "Femenino" ? "#f472b6" : T.muted;
                 return (
                   <tr key={i} style={{borderBottom:`1px solid rgba(255,255,255,0.04)`}}>
                     <td style={{padding:"6px 8px",color:T.text,maxWidth:130,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{nombre}</td>
                     <td style={{padding:"6px 8px",color:T.text2}}>{u.edad ?? "—"}</td>
-                    <td style={{padding:"6px 8px",color:u.sexo==="M"?"#38bdf8":u.sexo==="F"?"#f472b6":T.muted}}>{sexoLabel}</td>
+                    <td style={{padding:"6px 8px",color:sexoColor}}>{sexoIcon} {u.sexo}</td>
                     <td style={{padding:"6px 8px",color:T.text2,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.localidadNombre}</td>
                     <td style={{padding:"6px 8px"}}>
-                      <span style={{fontSize:9,background:plat.toLowerCase().includes("ios")?"rgba(56,189,248,0.15)":plat.toLowerCase().includes("android")?"rgba(16,185,129,0.15)":"rgba(255,255,255,0.06)",color:plat.toLowerCase().includes("ios")?"#38bdf8":plat.toLowerCase().includes("android")?T.green:T.muted,borderRadius:5,padding:"2px 7px",fontWeight:600}}>
-                        {plat}
-                      </span>
+                      <span style={{
+                        fontSize:9,
+                        background: plat.toLowerCase().includes("ios")     ? "rgba(56,189,248,0.15)"  :
+                                    plat.toLowerCase().includes("android") ? "rgba(16,185,129,0.15)"  :
+                                    "rgba(255,255,255,0.06)",
+                        color:      plat.toLowerCase().includes("ios")     ? "#38bdf8" :
+                                    plat.toLowerCase().includes("android") ? T.green   : T.muted,
+                        borderRadius:5, padding:"2px 7px", fontWeight:600,
+                      }}>{plat}</span>
                     </td>
                     <td style={{padding:"6px 8px"}}>
                       <span style={{fontSize:10,color:dniOk?T.green:T.red}}>{dniOk?"✓":"✗"}</span>
