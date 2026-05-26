@@ -1,0 +1,23 @@
+name: sync-sirenas-test
+
+on:
+  workflow_dispatch:  # solo manual, no automático
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm install
+
+      - name: Dry run sirenas
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          NOVIT_TOKEN: ${{ secrets.NOVIT_TOKEN }}
+        run: node sync-sirenas.mjs --dry-run
