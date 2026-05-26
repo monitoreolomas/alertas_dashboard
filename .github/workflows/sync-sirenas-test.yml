@@ -1,19 +1,26 @@
-name: sync-sirenas-test
+name: Sync Sirenas
+
 on:
+  schedule:
+    - cron: '0 2 * * *'
   workflow_dispatch:
+
 jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-node@v3
         with:
-          node-version: 22
-      - run: npm install
-        working-directory: sync
-      - name: Dry run sirenas
+          node-version: '18'
+
+      - name: Instalar dependencias
+        run: npm install @supabase/supabase-js node-fetch dotenv ws
+
+      - name: Correr sync-sirenas
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           NOVIT_TOKEN: ${{ secrets.NOVIT_TOKEN }}
-        run: node sync/sync-sirenas.mjs --dry-run
+        run: node sync-sirenas.mjs
