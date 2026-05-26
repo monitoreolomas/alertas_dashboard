@@ -122,7 +122,7 @@ function buildUrl(page, appType) {
     : JSON.stringify({ appType });
 
   return (
-    `${VECINOS_API}?limit=${BATCH_SIZE}&page=${page}&sort=-fechaCreacion` +
+    `${VECINOS_API}?limit=${BATCH_SIZE}&page=${page}` +
     `&populate=${encodeURIComponent(populate)}` +
     `&filter=${encodeURIComponent(filter)}`
   );
