@@ -1172,24 +1172,30 @@ const [filtroEstado, setFiltroEstado] = useState(""); // "" | "online" | "offlin
   const polygonsRef = useRef([]);
 
   // ── Fetch en vivo ──────────────────────────────────────────────────────────
-  async function cargarSirenas() {
-    setEstado("cargando");
-    try {
-      const populate = JSON.stringify([{ path: "idLocalidad", select: "nombre" }]);
-      const url = `${SIRENAS_API}?limit=2000&page=1&populate=${encodeURIComponent(populate)}`;
-      const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${NOVIT_TOKEN}` },
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-      setSirenas(json.datos || []);
-      setUltimaAct(new Date().toLocaleTimeString("es-AR"));
-      setEstado("ok");
-    } catch (e) {
-      console.error("Error cargando sirenas:", e);
-      setEstado("error");
-    }
+async function cargarSirenas() {
+  setEstado("cargando");
+  try {
+    const populate = encodeURIComponent(JSON.stringify({
+      path: "localidad",
+      select: "nombre"
+    }));
+    
+    // Sin "select" restrictivo → trae TODOS los campos
+    const url = `${SIRENAS_API}?limit=2000&page=1&populate=${populate}`;
+    
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${NOVIT_TOKEN}` },
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    setSirenas(json.datos || []);
+    setUltimaAct(new Date().toLocaleTimeString("es-AR"));
+    setEstado("ok");
+  } catch (e) {
+    console.error("Error cargando sirenas:", e);
+    setEstado("error");
   }
+}
 
   useEffect(() => { cargarSirenas(); }, []);
 
