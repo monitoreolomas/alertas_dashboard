@@ -1159,6 +1159,8 @@ const NOVIT_TOKEN = "38ca1abbbd83712288d97e05fe7333d7b4544d98";
 const SIRENAS_API = "https://apis2.novit.gpesistemas.ar/monitoreo/sirenas";
 
 function ViewSirenas({ leafletReady }) {
+  // Junto a los otros useState de ViewSirenas:
+const [filtroEstado, setFiltroEstado] = useState(""); // "" | "online" | "offline"
   const [estado, setEstado]       = useState("idle");
   const [sirenas, setSirenas]     = useState([]);
   const [ultimaAct, setUltimaAct] = useState(null);
@@ -1203,7 +1205,7 @@ function ViewSirenas({ leafletReady }) {
     online:       s.online === true,
     activa:       s.activa !== false,
     modelo:       s.modeloSirena || s.tipo || "Sin modelo",
-    localidad:    s.idLocalidad?.nombre?.trim() || "Sin localidad",
+    localidad: s.localidad?.nombre?.trim() || "Sin localidad",
     direccion:    s.direccionManual || s.direccionGps || "—",
     lat:          s.ubicacionGps?.lat ?? s.ubicacionManual?.lat ?? null,
     lng:          s.ubicacionGps?.lng ?? s.ubicacionManual?.lng ?? null,
@@ -1217,10 +1219,14 @@ function ViewSirenas({ leafletReady }) {
   })), [sirenas]);
 
   // ── Filtro por localidad ───────────────────────────────────────────────────
-  const sirenasFiltradas = useMemo(() =>
-    filtroCgm ? sirenasNorm.filter(s => s.localidad === filtroCgm) : sirenasNorm,
-    [sirenasNorm, filtroCgm]
-  );
+const sirenasFiltradas = useMemo(() => {
+  return sirenasNorm.filter(s => {
+    if (filtroCgm && s.localidad !== filtroCgm) return false;
+    if (filtroEstado === "online"  && !s.online) return false;
+    if (filtroEstado === "offline" &&  s.online) return false;
+    return true;
+  });
+}, [sirenasNorm, filtroCgm, filtroEstado]);
 
   // ── Métricas globales (siempre sobre todas) ───────────────────────────────
   const total   = sirenasNorm.length;
@@ -1397,11 +1403,20 @@ function ViewSirenas({ leafletReady }) {
             {localidadOpts.map(l => <option key={l} value={l}>{l}</option>)}
           </select>
           {filtroCgm && (
-            <button onClick={()=>setFiltroCgm("")}
+            <button onClick={() => { setFiltroCgm(""); setFiltroEstado(""); }}
               style={{background:"rgba(56,189,248,0.1)",border:`1px solid rgba(56,189,248,0.3)`,color:"#38bdf8",borderRadius:8,padding:"6px 12px",fontSize:11,fontFamily:"'Inter',sans-serif",cursor:"pointer",fontWeight:600}}>
               ✕ Quitar filtro
             </button>
           )}
+          <select
+  value={filtroEstado}
+  onChange={e => setFiltroEstado(e.target.value)}
+  style={{background:"#0d0d1f",border:`1px solid ${T.border}`,color:T.text,borderRadius:10,padding:"7px 12px",fontSize:12,fontFamily:"'Inter',sans-serif",outline:"none",cursor:"pointer"}}
+>
+  <option value="">Todos los estados</option>
+  <option value="online">🟢 Solo Online</option>
+  <option value="offline">🔴 Solo Offline</option>
+</select>
           <button onClick={cargarSirenas}
             style={{background:"rgba(16,185,129,0.1)",border:`1px solid rgba(16,185,129,0.3)`,color:T.green,borderRadius:8,padding:"6px 12px",fontSize:11,fontFamily:"'Inter',sans-serif",cursor:"pointer",fontWeight:600,display:"flex",alignItems:"center",gap:5}}>
             ↺ Actualizar
@@ -1718,7 +1733,7 @@ export default function App() {
     { id:"sirenas", label:"Sirenas", icon:"📡" }
   ];
 
-  const isUsuariosTab = view === "usuarios";
+  const isUsuariosTab = view === "usuarios" || view === "sirenas";
   const now = getArDate();
   const dateLabel = now.toLocaleDateString("es-AR",{day:"2-digit",month:"short",year:"numeric"});
 
