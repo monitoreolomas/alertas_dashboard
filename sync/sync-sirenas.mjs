@@ -1,88 +1,247 @@
+#!/usr/bin/env node
 import { createClient } from "@supabase/supabase-js";
+import fetch            from "node-fetch";
+import "dotenv/config";
+import { WebSocket }    from "ws";
 
-const SUPABASE_URL      = process.env.SUPABASE_URL;
-const SUPABASE_KEY      = process.env.SUPABASE_SERVICE_KEY;
-const NOVIT_TOKEN       = "38ca1abbbd83712288d97e05fe7333d7b4544d98";
-const SIRENAS_API       = "https://apis2.novit.gpesistemas.ar/monitoreo/sirenas";
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
+const NOVIT_TOKEN  = process.env.NOVIT_TOKEN;
+const SIRENAS_API  = "https://apis2.novit.gpesistemas.ar/monitoreo/sirenas";
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-
-async function fetchAllSirenas() {
-  const PAGE     = 100;
-  const headers  = { Authorization: `Bearer ${NOVIT_TOKEN}` };
-  const populate = encodeURIComponent(JSON.stringify([{ path: "localidad", select: "nombre" }]));
-
-  const first      = await fetch(`${SIRENAS_API}?limit=${PAGE}&page=1&populate=${populate}`, { headers }).then(r => r.json());
-  const total      = first.totalCount || 0;
-  const totalPages = Math.ceil(total / PAGE);
-
-  console.log(`Total en API: ${total} · Páginas: ${totalPages}`);
-
-  let all = [...(first.datos || [])];
-
-  for (let page = 2; page <= totalPages; page++) {
-    const json = await fetch(`${SIRENAS_API}?limit=${PAGE}&page=${page}&populate=${populate}`, { headers }).then(r => r.json());
-    all.push(...(json.datos || []));
-    await new Promise(r => setTimeout(r, 80));
-  }
-
-  return Array.from(new Map(all.map(s => [s._id, s])).values());
+if (!SUPABASE_URL || !SUPABASE_KEY || !NOVIT_TOKEN) {
+  console.error("Faltan variables de entorno: SUPABASE_URL, SUPABASE_SERVICE_KEY, NOVIT_TOKEN");
+  process.exit(1);
 }
 
-function normalize(s) {
+const BATCH_SIZE   = 15;
+const PARALLEL_REQ = 8;
+const INSERT_CHUNK = 200;
+const DRY_RUN      = process.argv.includes("--dry-run");
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, { global: { WebSocket } });
+
+function log(msg) {
+  console.log(`[${new Date().toLocaleTimeString("es-AR")}] ${msg}`);
+}
+
+// Convierte cualquier valor a boolean de forma estricta.
+// Fechas, strings raros, objetos → null (no rompe Postgres).
+function toBool(v) {
+  if (v === true  || v === 1 || v === "true"  || v === "1") return true;
+  if (v === false || v === 0 || v === "false" || v === "0") return false;
+  if (v === null || v === undefined) return null;
+  return null; // fecha ISO, string raro, objeto → null
+}
+
+function limpiarStr(v) {
+  if (v === null || v === undefined) return null;
+  const s = String(v)
+    .replace(/\u0000/g, "")
+    .replace(/[\x00-\x1F\x7F]/g, "")
+    .trim();
+  return s || null;
+}
+
+function sanitizar(obj) {
+  if (obj === null || obj === undefined) return null;
+  if (typeof obj === "string") return limpiarStr(obj);
+  if (typeof obj !== "object" || Array.isArray(obj)) return obj;
+  return Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, sanitizar(v)]));
+}
+
+function limpiarJsonStr(rows) {
+  let json = JSON.stringify(rows);
+  json = json
+    .replace(/\\u0000/g, "")
+    .replace(/\\u[0-9a-fA-F]{0,3}(?![0-9a-fA-F"])/g, "");
+  return JSON.parse(json);
+}
+
+function normalizarSirena(s) {
+  const d = sanitizar(s);
+
+  const localidadId     = d?.idLocalidad || null;
+  const localidadNombre = d?.localidad?.nombre?.trim() || null;
+
+  const lat = d?.ubicacionGps?.lat ?? d?.ubicacionManual?.lat ?? d?.geojson?.coordinates?.[1] ?? null;
+  const lng = d?.ubicacionGps?.lng ?? d?.ubicacionManual?.lng ?? d?.geojson?.coordinates?.[0] ?? null;
+
   return {
-    id:                  s._id,
-    chip_id:             s.chipId                  || null,
-    activa:              s.activa                  ?? true,
-    online:              s.online                  ?? false,
-    modelo_sirena:       s.modeloSirena || s.tipo  || null,
-    localidad_id:        s.localidad?._id || (typeof s.localidad === "string" ? s.localidad : null),
-    localidad:           s.localidad?.nombre?.trim() || null,
-    direccion:           s.direccionManual || s.direccionGps || null,
-    lat:                 s.ubicacionGps?.lat ?? s.ubicacionManual?.lat ?? null,
-    lng:                 s.ubicacionGps?.lng ?? s.ubicacionManual?.lng ?? null,
-    fecha_online:        s.fechaOnline        || null,
-    fecha_offline:       s.fechaOffline       || null,
-    fecha_creacion:      s.createdAt          || null,
-    rssi:                typeof s.rssi   === "number" ? s.rssi   : typeof s.senal === "number" ? s.senal : null,
-    version_firmware:    s.datosSw?.version  || s.versionFirmware || null,
-    acumulado_online:    s.acumuladoOnline    ?? null,
-    acumulado_offline:   s.acumuladoOffline   ?? null,
-    luz_encendida:       s.luzEncendida       ?? null,
-    sonido_encendido:    s.sonidoEncendido    ?? null,
-    actualizando:        s.actualizando       ?? null,
-    error_actualizacion: s.errorActualizacion ?? null,
-    error_sd:            s.errorSd            ?? null,
-    ber:                 typeof s.ber    === "number" ? s.ber    : null,
-    wakeup:              typeof s.wakeup === "number" ? s.wakeup : null,
-    tipo:                s.tipo               || null,
+    id:                  limpiarStr(d._id),
+    chip_id:             limpiarStr(d.chipId),
+    activa:              toBool(d?.activa)              ?? true,
+    online:              toBool(d?.online)              ?? false,
+    modelo_sirena:       limpiarStr(d?.modeloSirena),
+    localidad_id:        limpiarStr(localidadId),
+    localidad:           limpiarStr(localidadNombre),
+    direccion:           limpiarStr(d?.direccionManual ?? d?.direccionGps),
+    lat,
+    lng,
+    fecha_online:        d?.fechaOnline   || null,
+    fecha_offline:       d?.fechaOffline  || null,
+    fecha_creacion:      d?.fechaCreacion || null,
+    rssi:                typeof d?.rssi === "number" ? d.rssi : null,
+    version_firmware:    limpiarStr(d?.versionFirmware),
+    acumulado_online:    typeof d?.acumuladoOnline  === "number" ? d.acumuladoOnline  : null,
+    acumulado_offline:   typeof d?.acumuladoOffline === "number" ? d.acumuladoOffline : null,
+    luz_encendida:       toBool(d?.luzEncendida),
+    sonido_encendido:    toBool(d?.sonidoEncendido),
+    actualizando:        toBool(d?.actualizando),
+    error_actualizacion: toBool(d?.errorActualizacion),
+    error_sd:            toBool(d?.errorSd),
+    ber:                 typeof d?.ber    === "number" ? d.ber    : null,
+    wakeup:              typeof d?.wakeup === "number" ? d.wakeup : null,
+    tipo:                limpiarStr(d?.tipo),
     synced_at:           new Date().toISOString(),
   };
 }
 
-async function sync() {
-  console.log("=== Sync sirenas iniciado ===");
-  const raw  = await fetchAllSirenas();
-  const rows = raw.map(normalize);
-  console.log(`Normalizadas: ${rows.length} sirenas`);
-
-  await supabase.rpc("truncate_sirenas_cache");
-  console.log("Tabla truncada");
-
-  const BATCH = 200;
-  for (let i = 0; i < rows.length; i += BATCH) {
-    const batch = rows.slice(i, i + BATCH);
-    const { error } = await supabase
-      .from("sirenas_cache")
-      .upsert(batch, { onConflict: "id" });
-    if (error) {
-      console.error(`Error batch ${i}:`, error.message);
-      process.exit(1); // falla fuerte para ver el error en Actions
-    } else {
-      console.log(`Upserted ${i + batch.length}/${rows.length}`);
-    }
-  }
-  console.log("=== Sync completo ===");
+function buildUrl(page) {
+  const populate = JSON.stringify([{ path: "localidad", select: "nombre" }]);
+  return `${SIRENAS_API}?limit=${BATCH_SIZE}&page=${page}&populate=${encodeURIComponent(populate)}`;
 }
 
-sync().catch(e => { console.error(e); process.exit(1); });
+async function fetchPage(page, intentos = 3) {
+  const url     = buildUrl(page);
+  const headers = { Authorization: `Bearer ${NOVIT_TOKEN}` };
+  for (let i = 0; i < intentos; i++) {
+    try {
+      const res = await fetch(url, { headers });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      return { datos: json.datos || [], totalCount: json.totalCount || 0 };
+    } catch (err) {
+      if (i === intentos - 1) throw err;
+      log(`  Página ${page} falló (intento ${i+1}/${intentos}): ${err.message}. Reintentando...`);
+      await new Promise(r => setTimeout(r, 1500 * (i + 1)));
+    }
+  }
+}
+
+async function traerTodasDeAPI() {
+  log("── PASO 1: Trayendo sirenas de la API ──");
+
+  const first = await fetchPage(1);
+  const totalEsperado = first.totalCount;
+  log(`  totalCount: ${totalEsperado.toLocaleString()}`);
+
+  let rows = [...first.datos.map(normalizarSirena)];
+  const totalPages = Math.ceil(totalEsperado / BATCH_SIZE);
+
+  let page = 2;
+  while (page <= totalPages) {
+    const batch = [];
+    for (let p = page; p < page + PARALLEL_REQ && p <= totalPages; p++) {
+      batch.push(fetchPage(p));
+    }
+    const results = await Promise.all(batch);
+    let gotAny = false;
+    for (const { datos } of results) {
+      if (datos.length > 0) gotAny = true;
+      rows.push(...datos.map(normalizarSirena));
+    }
+    log(`  Fetched: ${rows.length.toLocaleString()} / ${totalEsperado.toLocaleString()}`);
+    if (!gotAny) break;
+    page += PARALLEL_REQ;
+    if (page <= totalPages) await new Promise(r => setTimeout(r, 150));
+  }
+
+  const unique = Array.from(new Map(rows.map(r => [r.id, r])).values());
+  log(`  Después de deduplicar: ${unique.length.toLocaleString()} / ${totalEsperado.toLocaleString()}`);
+
+  if (unique.length < totalEsperado) {
+    log(`  ⚠ Faltan ${totalEsperado - unique.length} sirenas — continuando con lo obtenido`);
+  }
+
+  const online  = unique.filter(r => r.online).length;
+  const offline = unique.filter(r => !r.online).length;
+  const byModelo = unique.reduce((acc, r) => {
+    const k = r.modelo_sirena || "null";
+    acc[k] = (acc[k] || 0) + 1;
+    return acc;
+  }, {});
+  log(`  Online: ${online} · Offline: ${offline}`);
+  log(`  Por modelo: ${JSON.stringify(byModelo)}`);
+  log(`Total API: ${unique.length.toLocaleString()} sirenas`);
+  return unique;
+}
+
+async function insertChunk(rows) {
+  if (DRY_RUN) { log(`  [DRY-RUN] ${rows.length} filas`); return rows.length; }
+
+  let rowsLimpios;
+  try { rowsLimpios = limpiarJsonStr(rows); }
+  catch (e) { log(`  Error serializando chunk: ${e.message}`); return 0; }
+
+  const seen   = new Set();
+  const unique = rowsLimpios.filter(r => {
+    if (seen.has(r.id)) return false;
+    seen.add(r.id); return true;
+  });
+
+  const { error } = await supabase.from("sirenas_cache").insert(unique);
+  if (!error) return unique.length;
+
+  log(`  Chunk falló (${error.message}), reintentando de a 1...`);
+  let ok = 0;
+  for (const row of unique) {
+    let r;
+    try { r = limpiarJsonStr([row])[0]; } catch { continue; }
+    const { error: e2 } = await supabase.from("sirenas_cache").insert([r]);
+    if (e2) log(`  Saltando ${row.id}: ${e2.message}`);
+    else ok++;
+  }
+  return ok;
+}
+
+async function truncateEInsert(rows) {
+  log("── PASO 2: Truncate sirenas_cache ──");
+  if (!DRY_RUN) {
+    const { error } = await supabase.rpc("truncate_sirenas_cache");
+    if (error) {
+      log(`  RPC no disponible (${error.message}), usando DELETE...`);
+      const { error: e2 } = await supabase.from("sirenas_cache").delete().neq("id", "");
+      if (e2) throw new Error(`Truncate falló: ${e2.message}`);
+    }
+    log("  Truncate OK");
+  } else {
+    log("  [DRY-RUN] Truncate omitido");
+  }
+
+  log("── PASO 3: Insertando registros ──");
+  log(`  Total a insertar: ${rows.length.toLocaleString()}`);
+
+  let written = 0;
+  for (let i = 0; i < rows.length; i += INSERT_CHUNK) {
+    const chunk = rows.slice(i, i + INSERT_CHUNK);
+    written += await insertChunk(chunk);
+    if (written % 1000 === 0 || i + INSERT_CHUNK >= rows.length) {
+      log(`  Insertado: ${written.toLocaleString()} / ${rows.length.toLocaleString()}`);
+    }
+  }
+  return written;
+}
+
+async function main() {
+  const t0 = Date.now();
+  log(`╔══ sync-sirenas.mjs iniciando${DRY_RUN ? " (DRY-RUN)" : ""} ══╗`);
+
+  const rows    = await traerTodasDeAPI();
+  const written = await truncateEInsert(rows);
+
+  const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+  log(`╚══ Completado en ${elapsed}s · ${written.toLocaleString()} sirenas escritas ══╝`);
+
+  if (!DRY_RUN) {
+    const { count: total }   = await supabase.from("sirenas_cache").select("*", { count: "exact", head: true });
+    const { count: online }  = await supabase.from("sirenas_cache").select("*", { count: "exact", head: true }).eq("online", true);
+    const { count: offline } = await supabase.from("sirenas_cache").select("*", { count: "exact", head: true }).eq("online", false);
+    log(`Estado tabla: Total=${(total||0).toLocaleString()} · Online=${(online||0).toLocaleString()} · Offline=${(offline||0).toLocaleString()}`);
+  }
+}
+
+main().catch(err => {
+  console.error("Error fatal:", err.message);
+  process.exit(1);
+});
