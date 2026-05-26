@@ -3,41 +3,28 @@
  * sync-full.mjs
  * ─────────────────────────────────────────────────────────────────────────────
  * Pipeline completo (una sola vez al día):
- *   1. Trae todos los usuarios de la API Novit en una sola pasada (sin filtro
- *      de appType — el filtro por grupo rompía iOS) capturando appType real
- *   2. Descarga el Excel de Novit vía Playwright
- *   3. Matchea cada fila del Excel con la API por DNI (único e inequívoco)
- *   4. TRUNCATE usuarios_cache
- *   5. INSERT de todos los registros (API + Excel no-duplicados)
+ *   1. Trae todos los usuarios de la API Novit en una sola pasada
+ *   2. TRUNCATE usuarios_cache
+ *   3. INSERT de todos los registros
  * ─────────────────────────────────────────────────────────────────────────────
  * Uso:
  *   node sync-full.mjs            → ejecución normal
  *   node sync-full.mjs --dry-run  → sin escribir en Supabase
  */
 
-import { chromium }        from "playwright";
-import { createClient }    from "@supabase/supabase-js";
-import fetch               from "node-fetch";
-import pkg                 from "xlsx";
-import crypto              from "crypto";
-import path                from "path";
-import fs                  from "fs";
+import { createClient } from "@supabase/supabase-js";
+import fetch            from "node-fetch";
 import "dotenv/config";
-import { WebSocket }       from "ws";
-
-const { readFile, utils } = pkg;
+import { WebSocket }    from "ws";
 
 // ── Env ───────────────────────────────────────────────────────────────────────
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const NOVIT_TOKEN  = process.env.NOVIT_TOKEN;
-const NOVIT_USER   = process.env.NOVIT_USER;
-const NOVIT_PASS   = process.env.NOVIT_PASS;
-const NOVIT_URL    = "https://monitoreo.grupocontrol.ar/#/login";
 const VECINOS_API  = "https://apis2.novit.gpesistemas.ar/monitoreo/configvecinos";
 
-if (!SUPABASE_URL || !SUPABASE_KEY || !NOVIT_TOKEN || !NOVIT_USER || !NOVIT_PASS) {
-  console.error("Faltan variables de entorno: SUPABASE_URL, SUPABASE_SERVICE_KEY, NOVIT_TOKEN, NOVIT_USER, NOVIT_PASS");
+if (!SUPABASE_URL || !SUPABASE_KEY || !NOVIT_TOKEN) {
+  console.error("Faltan variables de entorno: SUPABASE_URL, SUPABASE_SERVICE_KEY, NOVIT_TOKEN");
   process.exit(1);
 }
 
@@ -78,39 +65,63 @@ function limpiarJsonStr(rows) {
   return JSON.parse(json);
 }
 
-/** Normaliza un DNI: solo dígitos */
-function normalizarDni(dni) {
-  if (!dni) return "";
-  return String(dni).replace(/\D/g, "").trim();
+// ── Normalización — mapea API → columnas de usuarios_cache ───────────────────
+//
+// Columnas de la tabla (de la imagen):
+//   id, usuario, nombre, apellido, sexo, fecha_nacimiento, dni_escaneado,
+//   categoria_nombre, localidad, barrio, app_type, activo,
+//   fecha_creacion, fecha_actualizacion, synced_at
+//
+// Campos de la API:
+//   _id, activo, app, appType, appVersion, ultimoAcceso,
+//   direccion.localidad (populate → nombre), direccion.barrio (populate → nombre),
+//   categoria.categoria (populate → nombre),
+//   cliente.categoriaDefault (populate → nombre),
+//   dniEscaneado,
+//   fechaCreacion, fechaActualizacion,
+//   datosPersonales.{ dni, email, fechaNacimiento, nombre, sexo, telefono }
+//
+// NOTA: sexo en la API viene como boolean (true=Masculino, false=Femenino)
+
+function normalizarUsuarioAPI(u) {
+  const s = sanitizar(u);
+
+  // Categoría: puede venir de categoria.categoria, array de categoria, o cliente.categoriaDefault
+  let categoriaNombre = "Sin categoria";
+  if (s?.categoria?.categoria?.nombre) {
+    categoriaNombre = s.categoria.categoria.nombre;
+  } else if (Array.isArray(s?.categoria) && s.categoria.length > 0) {
+    categoriaNombre = s.categoria[0]?.categoria?.nombre || "Sin categoria";
+  } else if (s?.cliente?.categoriaDefault?.nombre) {
+    categoriaNombre = s.cliente.categoriaDefault.nombre;
+  }
+
+  // Sexo: boolean en la API → string legible
+  const sexoRaw = s?.datosPersonales?.sexo;
+  let sexo = null;
+  if (sexoRaw === true  || sexoRaw === "true"  || sexoRaw === "Masculino") sexo = "Masculino";
+  if (sexoRaw === false || sexoRaw === "false" || sexoRaw === "Femenino")  sexo = "Femenino";
+
+  return {
+    id:                  limpiarStr(s._id),
+    usuario:             limpiarStr(s?.datosPersonales?.email),   // email como usuario
+    nombre:              limpiarStr(s?.datosPersonales?.nombre),
+    apellido:            null,                                     // la API no separa apellido
+    sexo,
+    fecha_nacimiento:    s?.datosPersonales?.fechaNacimiento?.slice(0, 10) || null,
+    dni_escaneado:       s?.dniEscaneado === true || s?.dniEscaneado === "true",
+    categoria_nombre:    limpiarStr(categoriaNombre),
+    localidad:           limpiarStr(s?.direccion?.localidad?.nombre),
+    barrio:              limpiarStr(s?.direccion?.barrio?.nombre),
+    app_type:            limpiarStr(s?.appType),
+    activo:              s?.activo === true || s?.activo === "true",
+    fecha_creacion:      s?.fechaCreacion || null,
+    fecha_actualizacion: s?.fechaActualizacion || s?.updatedAt || null,
+    synced_at:           new Date().toISOString(),
+  };
 }
 
-/**
- * Clave de match para un usuario de la API: solo por DNI.
- */
-function clavesMatchAPI(dni) {
-  const dniNorm = normalizarDni(dni);
-  if (dniNorm) return [`dni:${dniNorm}`];
-  return [];
-}
-
-/**
- * Clave de match para una fila del Excel: solo por DNI.
- */
-function claveMatchExcel(dni) {
-  const dniNorm = normalizarDni(dni);
-  if (dniNorm) return `dni:${dniNorm}`;
-  return null;
-}
-
-/** Genera un ID hash MD5 de 24 chars como fallback */
-function generarIdHash(nombre, fechaCreacion, dni) {
-  const base = `${nombre || ""}|${fechaCreacion || ""}|${normalizarDni(dni)}`;
-  return crypto.createHash("md5").update(base).digest("hex").slice(0, 24);
-}
-
-// ── PASO 1: Traer todos los usuarios de la API ────────────────────────────────
-
-// Sin filtro de appType — el filtro por grupo rompía la paginación de iOS
+// ── PASO 1: Fetch API ─────────────────────────────────────────────────────────
 function buildUrl(page) {
   const populate = JSON.stringify([
     { path: "cliente", select: "categoriaDefault", populate: { path: "categoriaDefault", select: "nombre" } },
@@ -124,42 +135,8 @@ function buildUrl(page) {
   );
 }
 
-function normalizarUsuarioAPI(u) {
-  const s = sanitizar(u);
-
-  let categoriaNombre = "Sin categoria";
-  if (s?.categoria?.categoria?.nombre) {
-    categoriaNombre = s.categoria.categoria.nombre;
-  } else if (Array.isArray(s?.categoria) && s.categoria.length > 0) {
-    categoriaNombre = s.categoria[0]?.categoria?.nombre || "Sin categoria";
-  } else if (s?.cliente?.categoriaDefault?.nombre) {
-    categoriaNombre = s.cliente.categoriaDefault.nombre;
-  }
-
-  const dni = limpiarStr(s?.datosPersonales?.dni);
-
-  return {
-    id:                  limpiarStr(s._id),
-    usuario:             limpiarStr(s.usuario),
-    nombre:              limpiarStr(s?.datosPersonales?.nombre),
-    apellido:            limpiarStr(s?.datosPersonales?.apellido),
-    dni,
-    sexo:                s?.datosPersonales?.sexo ?? null,
-    fecha_nacimiento:    s?.datosPersonales?.fechaNacimiento?.slice(0, 10) || null,
-    dni_escaneado:       s?.dniEscaneado === true || s?.dniEscaneado === "true",
-    categoria_nombre:    limpiarStr(categoriaNombre),
-    localidad:           limpiarStr(s?.direccion?.localidad?.nombre || s?.localidad),
-    barrio:              limpiarStr(s?.direccion?.barrio?.nombre),
-    app_type:            limpiarStr(s?.appType),
-    activo:              s?.activo === true || s?.activo === "true",
-    fecha_creacion:      s?.fechaCreacion || null,
-    fecha_actualizacion: s?.fechaActualizacion || s?.updatedAt || null,
-    synced_at:           new Date().toISOString(),
-  };
-}
-
 async function fetchPage(page, intentos = 3) {
-  const url = buildUrl(page);
+  const url     = buildUrl(page);
   const headers = { Authorization: `Bearer ${NOVIT_TOKEN}` };
   for (let i = 0; i < intentos; i++) {
     try {
@@ -176,7 +153,7 @@ async function fetchPage(page, intentos = 3) {
 }
 
 async function traerTodosDeAPI() {
-  log("── PASO 1: Trayendo usuarios de la API (sin filtro de appType) ──");
+  log("── PASO 1: Trayendo usuarios de la API ──");
 
   const first = await fetchPage(1);
   log(`  totalCount: ${first.totalCount.toLocaleString()}`);
@@ -184,24 +161,23 @@ async function traerTodosDeAPI() {
   let rows = first.datos.map(normalizarUsuarioAPI);
   let page = 2;
 
-while (rows.length < first.totalCount) {
-  const batch = [];
-  for (let p = page; p < page + PARALLEL_REQ; p++) {
-    batch.push(fetchPage(p));
+  while (rows.length < first.totalCount) {
+    const batch = [];
+    for (let p = page; p < page + PARALLEL_REQ; p++) {
+      batch.push(fetchPage(p));
+    }
+    const results = await Promise.all(batch);
+    let done = false;
+    for (const { datos } of results) {
+      rows.push(...datos.map(normalizarUsuarioAPI));
+      if (datos.length < BATCH_SIZE) { done = true; break; }
+    }
+    log(`  Fetched: ${rows.length.toLocaleString()} / ${first.totalCount.toLocaleString()}`);
+    if (done || rows.length >= first.totalCount) break;
+    page += PARALLEL_REQ;
   }
-  const results = await Promise.all(batch);
-  let done = false;
-  for (const { datos } of results) {
-    rows.push(...datos.map(normalizarUsuarioAPI));
-    if (datos.length < BATCH_SIZE) { done = true; break; }
-  }
-  log(`  Fetched: ${rows.length.toLocaleString()}`);
-  // ← agregar esta línea: si ya alcanzamos o superamos el total, cortamos
-  if (done || rows.length >= first.totalCount) break;
-  page += PARALLEL_REQ;
-}
 
-  // Log resumen por appType
+  // Resumen por appType
   const byType = rows.reduce((acc, r) => {
     const k = r.app_type || "null";
     acc[k] = (acc[k] || 0) + 1;
@@ -212,184 +188,7 @@ while (rows.length < first.totalCount) {
   return rows;
 }
 
-// ── PASO 2: Descargar Excel vía Playwright ────────────────────────────────────
-
-async function descargarExcel() {
-  log("── PASO 2: Descargando Excel de Novit ──");
-
-  const downloadDir = path.resolve("./downloads");
-  if (!fs.existsSync(downloadDir)) fs.mkdirSync(downloadDir);
-  fs.readdirSync(downloadDir).forEach(f => fs.unlinkSync(path.join(downloadDir, f)));
-
-  const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext({ acceptDownloads: true });
-  const page    = await context.newPage();
-
-  log("  Navegando al login...");
-  await page.goto(NOVIT_URL, { waitUntil: "networkidle", timeout: 30000 });
-  await page.waitForSelector("#mat-input-0", { timeout: 15000 });
-  await page.fill("#mat-input-0", NOVIT_USER);
-  await page.fill("#mat-input-1", NOVIT_PASS);
-  await page.click('button:has-text("Ingresar")');
-  await page.waitForURL(/\#\/(dashboard|home|inicio)/, { timeout: 15000 }).catch(() => {});
-  log("  Login OK");
-
-  for (let i = 0; i < 3; i++) {
-    try {
-      const btn = page.locator('button:has-text("Aceptar")').first();
-      await btn.waitFor({ timeout: 3000 });
-      await btn.click();
-      await page.waitForTimeout(500);
-    } catch { break; }
-  }
-
-  await page.waitForSelector(".cdk-overlay-backdrop", { state: "hidden", timeout: 10000 }).catch(() => {});
-  await page.waitForTimeout(500);
-  await page.evaluate(() => {
-    for (const el of document.querySelectorAll("p, span, a")) {
-      if (el.textContent.trim() === "Configuración") { el.click(); break; }
-    }
-  });
-  await page.waitForTimeout(1000);
-  await page.evaluate(() => {
-    for (const el of document.querySelectorAll("p, span, a, mat-list-item")) {
-      if (el.textContent.trim() === "Vecinos") { el.click(); break; }
-    }
-  });
-  await page.waitForTimeout(2000);
-
-  log("  Descargando XLS...");
-  await page.evaluate(() => {
-    const btns = document.querySelectorAll("button");
-    for (const btn of btns) {
-      if (btn.textContent.includes("XLS") && btn.getAttribute("mattooltip") === "Exportar") {
-        btn.click(); return;
-      }
-    }
-    for (const btn of btns) {
-      if (btn.textContent.includes("XLS")) { btn.click(); return; }
-    }
-  });
-  await page.waitForTimeout(1500);
-  await page.evaluate(() => {
-    for (const btn of document.querySelectorAll("button")) {
-      if (btn.textContent.trim() === "Aceptar") { btn.click(); return; }
-    }
-  });
-
-  const download = await page.waitForEvent("download", { timeout: 60000 });
-  const xlsPath  = path.join(downloadDir, "vecinos.xlsx");
-  await download.saveAs(xlsPath);
-  await browser.close();
-  log(`  Excel guardado: ${xlsPath}`);
-  return xlsPath;
-}
-
-// ── PASO 3: Normalizar Excel y hacer match con API ────────────────────────────
-
-function normalizarFilaExcel(row, apiMap) {
-  let fechaCreacion = null;
-  try {
-    if (row["Fecha de registro"]) {
-      const parts = String(row["Fecha de registro"]).split(/[\/ :]/);
-      if (parts.length >= 3) {
-        const d = new Date(parts[2], parts[1] - 1, parts[0],
-          parts[3] || 0, parts[4] || 0, parts[5] || 0);
-        if (!isNaN(d.getTime())) fechaCreacion = d.toISOString();
-      }
-    }
-  } catch (e) {}
-
-  const nombreCompleto = limpiarStr(row["Nombre"]) || "";
-  const partes   = nombreCompleto.split(" ").filter(Boolean);
-  const apellido = partes[0] || null;
-  const nombre   = partes.slice(1).join(" ") || nombreCompleto;
-  const dni      = limpiarStr(row["DNI"]);
-
-  // Match solo por DNI
-  const clave    = claveMatchExcel(dni);
-  const apiMatch = clave ? apiMap.get(clave) : null;
-
-  const id       = apiMatch ? apiMatch.id       : generarIdHash(nombreCompleto, fechaCreacion, dni);
-  const app_type = apiMatch ? apiMatch.app_type : null;
-
-  return {
-    id,
-    usuario:          limpiarStr(row["Email"]),
-    nombre,
-    apellido,
-    dni,
-    sexo:             limpiarStr(row["Sexo"]),
-    fecha_nacimiento: (() => {
-      try {
-        if (!row["Fecha de Nacimiento"]) return null;
-        const parts = String(row["Fecha de Nacimiento"]).split(/[\/ :]/);
-        if (parts.length >= 3) {
-          const d = new Date(parts[2], parts[1] - 1, parts[0]);
-          return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
-        }
-        return null;
-      } catch (e) { return null; }
-    })(),
-    dni_escaneado:    !!dni,
-    categoria_nombre: limpiarStr(row["Categoria"]) || "Sin categoria",
-    localidad:        limpiarStr(row["Localidad"]),
-    barrio:           limpiarStr(row["Barrio"]),
-    app_type,
-    activo: (() => {
-      const v = String(row["Activo"] ?? "")
-        .normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-      return v === "si" || v === "true";
-    })(),
-    fecha_creacion:      fechaCreacion,
-    fecha_actualizacion: null,
-    synced_at:           new Date().toISOString(),
-  };
-}
-
-function procesarExcel(xlsPath, apiMap) {
-  log("── PASO 3: Procesando Excel y haciendo match por DNI ──");
-  const wb      = readFile(xlsPath);
-  const ws      = wb.Sheets[wb.SheetNames[0]];
-  const rawRows = utils.sheet_to_json(ws, { defval: null });
-  log(`  Filas en Excel: ${rawRows.length.toLocaleString()}`);
-
-  const rows = rawRows.map(row => normalizarFilaExcel(row, apiMap));
-
-  let matcheados = 0;
-  const sinMatch = [];
-
-  for (const r of rows) {
-    const claveDni = claveMatchExcel(r.dni);
-    if (claveDni && apiMap.has(claveDni)) {
-      matcheados++;
-    } else {
-      sinMatch.push(r);
-    }
-  }
-
-  const pct = rows.length > 0 ? ((matcheados / rows.length) * 100).toFixed(1) : "0.0";
-  log(`  Matcheados con API por DNI: ${matcheados.toLocaleString()} / ${rows.length.toLocaleString()} (${pct}%)`);
-  log(`  Sin match (hash fallback):  ${sinMatch.length.toLocaleString()}`);
-
-  if (sinMatch.length > 0 && sinMatch.length <= 20) {
-    log("  Detalle sin match:");
-    for (const r of sinMatch) {
-      log(`    · "${[r.apellido, r.nombre].filter(Boolean).join(" ")}" | dni:${r.dni ?? "-"} | ${r.fecha_creacion?.slice(0, 10) ?? "sin fecha"}`);
-    }
-  } else if (sinMatch.length > 20) {
-    log("  Primeros 20 sin match:");
-    for (const r of sinMatch.slice(0, 20)) {
-      log(`    · "${[r.apellido, r.nombre].filter(Boolean).join(" ")}" | dni:${r.dni ?? "-"} | ${r.fecha_creacion?.slice(0, 10) ?? "sin fecha"}`);
-    }
-    log(`    ... y ${sinMatch.length - 20} más`);
-  }
-
-  return rows.filter(r => r.id);
-}
-
-// ── PASO 4 + 5: Truncate + Insert ─────────────────────────────────────────────
-
+// ── PASO 2 + 3: Truncate + Insert ────────────────────────────────────────────
 async function insertChunk(rows) {
   if (DRY_RUN) { log(`  [DRY-RUN] ${rows.length} filas`); return rows.length; }
 
@@ -418,8 +217,8 @@ async function insertChunk(rows) {
   return ok;
 }
 
-async function truncateEInsert(apiRows, excelRows) {
-  log("── PASO 4: Truncate usuarios_cache ──");
+async function truncateEInsert(rows) {
+  log("── PASO 2: Truncate usuarios_cache ──");
   if (!DRY_RUN) {
     const { error } = await supabase.rpc("truncate_usuarios_cache");
     if (error) {
@@ -432,22 +231,15 @@ async function truncateEInsert(apiRows, excelRows) {
     log("  [DRY-RUN] Truncate omitido");
   }
 
-  log("── PASO 5: Insertando todos los registros ──");
-
-  const apiIds    = new Set(apiRows.map(r => r.id));
-  const excelSolo = excelRows.filter(r => !apiIds.has(r.id));
-  log(`  API rows: ${apiRows.length.toLocaleString()}`);
-  log(`  Excel rows nuevos (sin duplicar): ${excelSolo.length.toLocaleString()}`);
-
-  const toInsert = [...apiRows, ...excelSolo];
-  log(`  Total a insertar: ${toInsert.length.toLocaleString()}`);
+  log("── PASO 3: Insertando registros ──");
+  log(`  Total a insertar: ${rows.length.toLocaleString()}`);
 
   let written = 0;
-  for (let i = 0; i < toInsert.length; i += INSERT_CHUNK) {
-    const chunk = toInsert.slice(i, i + INSERT_CHUNK);
+  for (let i = 0; i < rows.length; i += INSERT_CHUNK) {
+    const chunk = rows.slice(i, i + INSERT_CHUNK);
     written += await insertChunk(chunk);
-    if (written % 5000 === 0 || i + INSERT_CHUNK >= toInsert.length) {
-      log(`  Insertado: ${written.toLocaleString()} / ${toInsert.length.toLocaleString()}`);
+    if (written % 5000 === 0 || i + INSERT_CHUNK >= rows.length) {
+      log(`  Insertado: ${written.toLocaleString()} / ${rows.length.toLocaleString()}`);
     }
   }
 
@@ -455,40 +247,22 @@ async function truncateEInsert(apiRows, excelRows) {
 }
 
 // ── MAIN ──────────────────────────────────────────────────────────────────────
-
 async function main() {
   const t0 = Date.now();
   log(`╔══ sync-full.mjs iniciando${DRY_RUN ? " (DRY-RUN)" : ""} ══╗`);
 
-  // 1. Traer API (una sola pasada, sin filtro de appType)
-  const apiRows = await traerTodosDeAPI();
-
-  // Construir mapa de match solo por DNI
-  const apiMap = new Map();
-  for (const u of apiRows) {
-    for (const clave of clavesMatchAPI(u.dni)) {
-      if (!apiMap.has(clave)) apiMap.set(clave, { id: u.id, app_type: u.app_type });
-    }
-  }
-  log(`Mapa de match construido: ${apiMap.size.toLocaleString()} entradas (por DNI)`);
-
-  // 2. Descargar Excel
-  const xlsPath = await descargarExcel();
-
-  // 3. Procesar Excel + match
-  const excelRows = procesarExcel(xlsPath, apiMap);
-
-  // 4 + 5. Truncate + Insert
-  const written = await truncateEInsert(apiRows, excelRows);
+  const rows    = await traerTodosDeAPI();
+  const written = await truncateEInsert(rows);
 
   const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
   log(`╚══ Completado en ${elapsed}s · ${written.toLocaleString()} filas escritas ══╝`);
 
+  // Resumen final directo de la tabla
   if (!DRY_RUN) {
-    const { data: resumen } = await supabase.from("v_usuarios_resumen").select("*").single();
-    if (resumen) {
-      log(`Estado tabla: Total=${Number(resumen.total).toLocaleString()} · Activos=${Number(resumen.activos).toLocaleString()} · Con DNI=${Number(resumen.con_dni).toLocaleString()}`);
-    }
+    const { count: total }   = await supabase.from("usuarios_cache").select("*", { count: "exact", head: true });
+    const { count: activos } = await supabase.from("usuarios_cache").select("*", { count: "exact", head: true }).eq("activo", true);
+    const { count: conDni }  = await supabase.from("usuarios_cache").select("*", { count: "exact", head: true }).eq("dni_escaneado", true);
+    log(`Estado tabla: Total=${(total||0).toLocaleString()} · Activos=${(activos||0).toLocaleString()} · Con DNI=${(conDni||0).toLocaleString()}`);
   }
 }
 
