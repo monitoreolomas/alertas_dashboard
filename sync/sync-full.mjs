@@ -66,27 +66,9 @@ function limpiarJsonStr(rows) {
 }
 
 // ── Normalización — mapea API → columnas de usuarios_cache ───────────────────
-//
-// Columnas de la tabla (de la imagen):
-//   id, usuario, nombre, apellido, sexo, fecha_nacimiento, dni_escaneado,
-//   categoria_nombre, localidad, barrio, app_type, activo,
-//   fecha_creacion, fecha_actualizacion, synced_at
-//
-// Campos de la API:
-//   _id, activo, app, appType, appVersion, ultimoAcceso,
-//   direccion.localidad (populate → nombre), direccion.barrio (populate → nombre),
-//   categoria.categoria (populate → nombre),
-//   cliente.categoriaDefault (populate → nombre),
-//   dniEscaneado,
-//   fechaCreacion, fechaActualizacion,
-//   datosPersonales.{ dni, email, fechaNacimiento, nombre, sexo, telefono }
-//
-// NOTA: sexo en la API viene como boolean (true=Masculino, false=Femenino)
-
 function normalizarUsuarioAPI(u) {
   const s = sanitizar(u);
 
-  // Categoría: puede venir de categoria.categoria, array de categoria, o cliente.categoriaDefault
   let categoriaNombre = "Sin categoria";
   if (s?.categoria?.categoria?.nombre) {
     categoriaNombre = s.categoria.categoria.nombre;
@@ -96,7 +78,6 @@ function normalizarUsuarioAPI(u) {
     categoriaNombre = s.cliente.categoriaDefault.nombre;
   }
 
-  // Sexo: boolean en la API → string legible
   const sexoRaw = s?.datosPersonales?.sexo;
   let sexo = null;
   if (sexoRaw === true  || sexoRaw === "true"  || sexoRaw === "Masculino") sexo = "Masculino";
@@ -104,9 +85,9 @@ function normalizarUsuarioAPI(u) {
 
   return {
     id:                  limpiarStr(s._id),
-    usuario:             limpiarStr(s?.datosPersonales?.email),   // email como usuario
+    usuario:             limpiarStr(s?.datosPersonales?.email),
     nombre:              limpiarStr(s?.datosPersonales?.nombre),
-    apellido:            null,                                     // la API no separa apellido
+    apellido:            null,
     sexo,
     fecha_nacimiento:    s?.datosPersonales?.fechaNacimiento?.slice(0, 10) || null,
     dni_escaneado:       s?.dniEscaneado === true || s?.dniEscaneado === "true",
@@ -166,14 +147,22 @@ async function traerTodosDeAPI() {
     for (let p = page; p < page + PARALLEL_REQ; p++) {
       batch.push(fetchPage(p));
     }
+
+    // FIX: esperar todos los resultados del batch antes de decidir si cortar.
+    // Antes se cortaba apenas una página del batch devolvía menos de BATCH_SIZE,
+    // perdiendo las páginas restantes del mismo batch paralelo.
     const results = await Promise.all(batch);
-    let done = false;
+    let gotAny = false;
     for (const { datos } of results) {
+      if (datos.length > 0) gotAny = true;
       rows.push(...datos.map(normalizarUsuarioAPI));
-      if (datos.length < BATCH_SIZE) { done = true; break; }
     }
+
     log(`  Fetched: ${rows.length.toLocaleString()} / ${first.totalCount.toLocaleString()}`);
-    if (done || rows.length >= first.totalCount) break;
+
+    // Cortar solo si ya alcanzamos el total o ninguna página trajo datos
+    if (!gotAny || rows.length >= first.totalCount) break;
+
     page += PARALLEL_REQ;
   }
 
@@ -257,7 +246,6 @@ async function main() {
   const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
   log(`╚══ Completado en ${elapsed}s · ${written.toLocaleString()} filas escritas ══╝`);
 
-  // Resumen final directo de la tabla
   if (!DRY_RUN) {
     const { count: total }   = await supabase.from("usuarios_cache").select("*", { count: "exact", head: true });
     const { count: activos } = await supabase.from("usuarios_cache").select("*", { count: "exact", head: true }).eq("activo", true);
