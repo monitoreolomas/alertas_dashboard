@@ -3,7 +3,8 @@
  * sync-full.mjs
  * ─────────────────────────────────────────────────────────────────────────────
  * Pipeline completo (una sola vez al día):
- *   1. Trae todos los usuarios de la API Novit (con sus MongoDB IDs y app_type)
+ *   1. Trae todos los usuarios de la API Novit en una sola pasada (sin filtro
+ *      de appType — el filtro por grupo rompía iOS) capturando appType real
  *   2. Descarga el Excel de Novit vía Playwright
  *   3. Matchea cada fila del Excel con la API por DNI (único e inequívoco)
  *   4. TRUNCATE usuarios_cache
@@ -85,7 +86,6 @@ function normalizarDni(dni) {
 
 /**
  * Clave de match para un usuario de la API: solo por DNI.
- * Devuelve array para mantener la interfaz (puede estar vacío si no tiene DNI).
  */
 function clavesMatchAPI(dni) {
   const dniNorm = normalizarDni(dni);
@@ -110,9 +110,8 @@ function generarIdHash(nombre, fechaCreacion, dni) {
 
 // ── PASO 1: Traer todos los usuarios de la API ────────────────────────────────
 
-function buildUrl(page, appType) {
-  const filterObj = { appType };
-  const filter = JSON.stringify(filterObj);
+// Sin filtro de appType — el filtro por grupo rompía la paginación de iOS
+function buildUrl(page) {
   const populate = JSON.stringify([
     { path: "cliente", select: "categoriaDefault", populate: { path: "categoriaDefault", select: "nombre" } },
     { path: "categoria.categoria", select: "nombre" },
@@ -121,8 +120,7 @@ function buildUrl(page, appType) {
   ]);
   return (
     `${VECINOS_API}?limit=${BATCH_SIZE}&page=${page}&sort=-fechaCreacion` +
-    `&populate=${encodeURIComponent(populate)}` +
-    `&filter=${encodeURIComponent(filter)}`
+    `&populate=${encodeURIComponent(populate)}`
   );
 }
 
@@ -160,8 +158,8 @@ function normalizarUsuarioAPI(u) {
   };
 }
 
-async function fetchPage(page, appType, intentos = 3) {
-  const url = buildUrl(page, appType);
+async function fetchPage(page, intentos = 3) {
+  const url = buildUrl(page);
   const headers = { Authorization: `Bearer ${NOVIT_TOKEN}` };
   for (let i = 0; i < intentos; i++) {
     try {
@@ -177,46 +175,40 @@ async function fetchPage(page, appType, intentos = 3) {
   }
 }
 
-async function fetchGrupoAPI(appType) {
-  const label = appType === null ? "sin app" : appType;
-  log(`  Grupo API: ${label}`);
+async function traerTodosDeAPI() {
+  log("── PASO 1: Trayendo usuarios de la API (sin filtro de appType) ──");
 
-  const first = await fetchPage(1, appType);
-  log(`    totalCount: ${first.totalCount.toLocaleString()}`);
+  const first = await fetchPage(1);
+  log(`  totalCount: ${first.totalCount.toLocaleString()}`);
 
   let rows = first.datos.map(normalizarUsuarioAPI);
   let page = 2;
 
-  if (first.datos.length >= BATCH_SIZE) {
-    while (true) {
-      const batch = [];
-      for (let p = page; p < page + PARALLEL_REQ; p++) {
-        batch.push(fetchPage(p, appType));
-      }
-      const results = await Promise.all(batch);
-      let done = false;
-      for (const { datos } of results) {
-        rows.push(...datos.map(normalizarUsuarioAPI));
-        if (datos.length < BATCH_SIZE) { done = true; break; }
-      }
-      log(`    Fetched: ${rows.length.toLocaleString()}`);
-      if (done) break;
-      page += PARALLEL_REQ;
+  while (rows.length < first.totalCount) {
+    const batch = [];
+    for (let p = page; p < page + PARALLEL_REQ; p++) {
+      batch.push(fetchPage(p));
     }
+    const results = await Promise.all(batch);
+    let done = false;
+    for (const { datos } of results) {
+      rows.push(...datos.map(normalizarUsuarioAPI));
+      if (datos.length < BATCH_SIZE) { done = true; break; }
+    }
+    log(`  Fetched: ${rows.length.toLocaleString()}`);
+    if (done) break;
+    page += PARALLEL_REQ;
   }
 
-  log(`    Total: ${rows.length.toLocaleString()}`);
+  // Log resumen por appType
+  const byType = rows.reduce((acc, r) => {
+    const k = r.app_type || "null";
+    acc[k] = (acc[k] || 0) + 1;
+    return acc;
+  }, {});
+  log(`  Distribución appType: ${JSON.stringify(byType)}`);
+  log(`Total API: ${rows.length.toLocaleString()} usuarios`);
   return rows;
-}
-
-async function traerTodosDeAPI() {
-  log("── PASO 1: Trayendo usuarios de la API ──");
-  const grupos = await Promise.all(
-    ["ios", "android", "web", null].map(fetchGrupoAPI)
-  );
-  const todos = grupos.flat();
-  log(`Total API: ${todos.length.toLocaleString()} usuarios`);
-  return todos;
 }
 
 // ── PASO 2: Descargar Excel vía Playwright ────────────────────────────────────
@@ -467,7 +459,7 @@ async function main() {
   const t0 = Date.now();
   log(`╔══ sync-full.mjs iniciando${DRY_RUN ? " (DRY-RUN)" : ""} ══╗`);
 
-  // 1. Traer API
+  // 1. Traer API (una sola pasada, sin filtro de appType)
   const apiRows = await traerTodosDeAPI();
 
   // Construir mapa de match solo por DNI
