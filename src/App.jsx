@@ -30,15 +30,6 @@ function parseFecha(fechaStr) {
   return fecha;
 }
 
-function parseFiltroDate(fechaStr) {
-  if (!fechaStr) return null;
-  if (fechaStr.includes("/")) {
-    const [d, m, y] = fechaStr.split("/").map(Number);
-    return new Date(y, m - 1, d);
-  }
-  return new Date(fechaStr);
-}
-
 function isFinde(f) {
   if (!f) return false;
   const dt = parseFecha(f);
@@ -55,13 +46,30 @@ function getTurno(h, finde) {
   if (h >= 14 && h < 22) return "Tarde";
   return "Noche";
 }
-function todayStr() {
-  const d = new Date();
-  return d.toISOString().slice(0,10);
+
+// ─── FIX FECHA AR ─────────────────────────────────────────────────────────────
+// Siempre calcula la fecha en Argentina (UTC-3), sin depender del timezone del browser
+function getArDate() {
+  const now = new Date();
+  // Offset de Argentina: UTC-3 = -180 minutos
+  const AR_OFFSET_MS = -3 * 60 * 60 * 1000;
+  const arMs = now.getTime() + now.getTimezoneOffset() * 60 * 1000 + AR_OFFSET_MS;
+  return new Date(arMs);
 }
+
+function todayStr() {
+  const ar = getArDate();
+  const y = ar.getFullYear();
+  const m = String(ar.getMonth() + 1).padStart(2, "0");
+  const d = String(ar.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 function firstOfMonthStr() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-01`;
+  const ar = getArDate();
+  const y = ar.getFullYear();
+  const m = String(ar.getMonth() + 1).padStart(2, "0");
+  return `${y}-${m}-01`;
 }
 
 function calcularEdad(fechaNacimiento) {
@@ -73,12 +81,6 @@ function calcularEdad(fechaNacimiento) {
   const m = hoy.getMonth() - fn.getMonth();
   if (m < 0 || (m === 0 && hoy.getDate() < fn.getDate())) edad--;
   return edad;
-}
-
-function getSexoLabel(sexo) {
-  if (sexo === true) return "M";
-  if (sexo === false) return "F";
-  return "Sin dato";
 }
 
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
@@ -567,9 +569,8 @@ function ViewMapa({ data, filters, setFilters }) {
     </div>
   );
 }
-// ─── VISTA USUARIOS ───────────────────────────────────────────────────────────
-// Reemplazar la función ViewUsuarios completa en App.jsx
 
+// ─── VISTA USUARIOS ───────────────────────────────────────────────────────────
 const AGE_RANGES = [
   { label:"18–25", min:18,  max:25,  color:"#38bdf8" },
   { label:"26–35", min:26,  max:35,  color:"#8b5cf6" },
@@ -580,7 +581,6 @@ const AGE_RANGES = [
   { label:"76–100",min:76,  max:100, color:"#a78bfa" },
 ];
 
-// Formato numérico con puntos (35000 → "35.000")
 function fmtNum(n) {
   if (n == null) return "—";
   return Math.round(n).toLocaleString("es-AR");
@@ -618,25 +618,18 @@ function AgeBarChart({ ranges, total }) {
 
 function ViewUsuarios() {
   const [estado, setEstado]                   = useState("idle");
-  const [usuarios, setUsuarios]               = useState([]);
-  const [resumen, setResumen]                 = useState(null);
+  // todosActivos: todos los usuarios activos SIN filtro de fecha (para plataforma, sexo, edad global)
+  const [todosActivos, setTodosActivos]       = useState([]);
+  // usuariosFiltrados: solo los del período seleccionado (para KPI "Altas en período" y tabla)
+  const [usuariosFiltrados, setUsuariosFiltrados] = useState([]);
+  const [totalSistema, setTotalSistema]       = useState(null);
   const [ultimaActualizacion, setUltimaActualizacion] = useState(null);
   const [paginaRecientes, setPaginaRecientes] = useState(0);
   const POR_PAGINA = 8;
 
-  // ── Default: 1° del mes vigente → hoy, sin fechas futuras ─────────────────
-  const todayAR = useMemo(() => {
-    // Fecha actual en Argentina (UTC-3)
-    const now = new Date();
-    const arOffset = -3 * 60;
-    const utc = now.getTime() + now.getTimezoneOffset() * 60000;
-    const ar  = new Date(utc + arOffset * 60000);
-    return ar.toISOString().slice(0, 10);
-  }, []);
-
-  const firstOfMonthAR = useMemo(() => {
-    return todayAR.slice(0, 8) + "01";
-  }, [todayAR]);
+  // ── Fecha AR correcta ──────────────────────────────────────────────────────
+  const todayAR = useMemo(() => todayStr(), []);
+  const firstOfMonthAR = useMemo(() => firstOfMonthStr(), []);
 
   const [userFilters, setUserFilters] = useState({
     fechaDesde: firstOfMonthAR,
@@ -645,16 +638,24 @@ function ViewUsuarios() {
   });
   const [userFiltersOpen, setUserFiltersOpen] = useState(false);
 
+  // ── Carga principal ────────────────────────────────────────────────────────
+  // Se ejecuta UNA SOLA VEZ (o cuando cambia cgm) para traer TODOS los activos
+  // La fecha se filtra localmente para no perder datos de plataforma/sexo/edad
   async function cargarUsuarios() {
     setEstado("cargando");
     try {
-      const { data: resumenData, error: resumenErr } = await supabase
-        .from("v_usuarios_resumen")
-        .select("*")
-        .single();
-      if (resumenErr) console.warn("Sin vista resumen:", resumenErr.message);
-      setResumen(resumenData || null);
+      // FIX 1: Total del sistema directo desde la tabla, sin vista
+      const { count: totalCount, error: countErr } = await supabase
+        .from("usuarios_cache")
+        .select("*", { count: "exact", head: true })
+        .eq("activo", true);
 
+      if (!countErr && totalCount != null) {
+        setTotalSistema(totalCount);
+      }
+
+      // FIX 2: Traer TODOS los activos sin filtro de fecha
+      // (para que plataforma/sexo/edad muestren el universo completo)
       let query = supabase
         .from("usuarios_cache")
         .select("*")
@@ -662,14 +663,12 @@ function ViewUsuarios() {
         .order("fecha_creacion", { ascending: false })
         .limit(50000);
 
-      if (userFilters.fechaDesde) query = query.gte("fecha_creacion", userFilters.fechaDesde);
-      if (userFilters.fechaHasta) query = query.lte("fecha_creacion", userFilters.fechaHasta + "T23:59:59");
-      if (userFilters.cgm)        query = query.eq("localidad", userFilters.cgm);
+      if (userFilters.cgm) query = query.eq("localidad", userFilters.cgm);
 
       const { data, error } = await query;
       if (error) throw error;
 
-      setUsuarios(data || []);
+      setTodosActivos(data || []);
       setUltimaActualizacion(new Date().toLocaleTimeString("es-AR"));
       setEstado("ok");
     } catch (e) {
@@ -678,45 +677,63 @@ function ViewUsuarios() {
     }
   }
 
-  useEffect(() => { cargarUsuarios(); }, [userFilters]);
+  // Solo recarga desde Supabase cuando cambia el filtro CGM
+  useEffect(() => { cargarUsuarios(); }, [userFilters.cgm]);
 
-  const usuariosNormalizados = useMemo(() => usuarios.map(u => ({
-    ...u,
-    nombre:          u.nombre   || "",
-    apellido:        u.apellido || "",
-    // sexo: en Supabase viene "Masculino"/"Femenino"/null o true/false
-    sexo: (() => {
-      const s = u.sexo;
-      if (s === true  || s === "true"  || s === "Masculino" || s === "M") return "Masculino";
-      if (s === false || s === "false" || s === "Femenino"  || s === "F") return "Femenino";
-      return "Sin dato";
-    })(),
-    edad:            calcularEdad(u.fecha_nacimiento),
-    categoriaFix:    u.categoria_nombre || "Sin categoría",
-    // plataforma: normalizar null/"null"/undefined → "Sin dato"
-    plataforma: (() => {
-      const p = u.app_type;
-      if (!p || p === "null") return "Sin dato";
-      return p;
-    })(),
-    localidadNombre: u.localidad || "Sin dato",
-    fechaCreacion:   u.fecha_creacion,
-    dniEscaneado:    u.dni_escaneado,
-  })), [usuarios]);
+  // Filtra por fecha localmente (rápido, sin nueva query)
+  useEffect(() => {
+    if (!todosActivos.length) { setUsuariosFiltrados([]); return; }
+    const desde = userFilters.fechaDesde;
+    const hasta = userFilters.fechaHasta;
+    const filtrados = todosActivos.filter(u => {
+      const f = u.fecha_creacion?.slice(0, 10);
+      if (!f) return false;
+      if (desde && f < desde) return false;
+      if (hasta && f > hasta) return false;
+      return true;
+    });
+    setUsuariosFiltrados(filtrados);
+    setPaginaRecientes(0);
+  }, [todosActivos, userFilters.fechaDesde, userFilters.fechaHasta]);
 
-  // ── Totales del resumen (siempre el total real del sistema) ────────────────
-  const totalSistema = resumen?.total ? Number(resumen.total) : null;
-  const ultimoSync   = resumen?.ultimo_sync
-    ? new Date(resumen.ultimo_sync).toLocaleString("es-AR")
-    : null;
+  // ── Normalización ──────────────────────────────────────────────────────────
+  function normalizar(u) {
+    return {
+      ...u,
+      nombre:   u.nombre   || "",
+      apellido: u.apellido || "",
+      sexo: (() => {
+        const s = u.sexo;
+        if (s === true  || s === "true"  || s === "Masculino" || s === "M") return "Masculino";
+        if (s === false || s === "false" || s === "Femenino"  || s === "F") return "Femenino";
+        return "Sin dato";
+      })(),
+      edad:            calcularEdad(u.fecha_nacimiento),
+      categoriaFix:    u.categoria_nombre || "Sin categoría",
+      plataforma: (() => {
+        const p = u.app_type;
+        if (!p || p === "null") return "Sin dato";
+        return p;
+      })(),
+      localidadNombre: u.localidad || "Sin dato",
+      fechaCreacion:   u.fecha_creacion,
+      dniEscaneado:    u.dni_escaneado,
+    };
+  }
 
-  // ── Métricas sobre datos filtrados ─────────────────────────────────────────
-  const filteredCount = usuariosNormalizados.length;
+  // Todos activos normalizados (para plataforma, sexo, edad, localidad)
+  const todosNorm = useMemo(() => todosActivos.map(normalizar), [todosActivos]);
+  // Filtrados por fecha normalizados (para altas del período, tabla recientes)
+  const filtradosNorm = useMemo(() => usuariosFiltrados.map(normalizar), [usuariosFiltrados]);
 
-  const edadesValidas = usuariosNormalizados
-    .map(u => u.edad)
-    .filter(e => e != null && !isNaN(e) && e >= 18 && e <= 100);
+  const filteredCount = filtradosNorm.length;
+  const totalActivos  = todosNorm.length; // universo completo para métricas globales
 
+  // ── Métricas sobre TODOS los activos (sin filtro fecha) ───────────────────
+  const edadesValidas = useMemo(() =>
+    todosNorm.map(u => u.edad).filter(e => e != null && !isNaN(e) && e >= 18 && e <= 100),
+    [todosNorm]
+  );
   const edadProm = edadesValidas.length
     ? (edadesValidas.reduce((a,b)=>a+b,0) / edadesValidas.length).toFixed(1)
     : "—";
@@ -728,81 +745,71 @@ function ViewUsuarios() {
     value: edadesValidas.filter(e => e >= r.min && e <= r.max).length,
   })).filter(r => r.value > 0);
 
-  // Sexo — dinámico al filtro
+  // Sexo — sobre universo completo
   const porSexo = useMemo(() => {
     const acc = {};
-    usuariosNormalizados.forEach(u => {
-      acc[u.sexo] = (acc[u.sexo] || 0) + 1;
-    });
+    todosNorm.forEach(u => { acc[u.sexo] = (acc[u.sexo] || 0) + 1; });
     return acc;
-  }, [usuariosNormalizados]);
+  }, [todosNorm]);
+  const sexoColors = { "Masculino":"#38bdf8", "Femenino":"#f472b6", "Sin dato":T.muted };
+  const sexoMaxVal = Math.max(...Object.values(porSexo), 1);
 
-  const sexoColors   = { "Masculino":"#38bdf8", "Femenino":"#f472b6", "Sin dato":T.muted };
-  const sexoMaxVal   = Math.max(...Object.values(porSexo), 1);
-
-  // Plataforma — dinámico al filtro
+  // FIX 2: Plataforma — sobre TODOS los activos (sin filtro fecha)
   const porPlataforma = useMemo(() => {
     const acc = {};
-    usuariosNormalizados.forEach(u => {
-      acc[u.plataforma] = (acc[u.plataforma] || 0) + 1;
-    });
+    todosNorm.forEach(u => { acc[u.plataforma] = (acc[u.plataforma] || 0) + 1; });
     return acc;
-  }, [usuariosNormalizados]);
-
+  }, [todosNorm]);
   const platMaxVal = Math.max(...Object.values(porPlataforma), 1);
 
-  // Localidad
+  // Localidad — sobre universo completo
   const porLocalidad = useMemo(() => {
     const acc = {};
-    usuariosNormalizados.forEach(u => {
-      acc[u.localidadNombre] = (acc[u.localidadNombre] || 0) + 1;
-    });
+    todosNorm.forEach(u => { acc[u.localidadNombre] = (acc[u.localidadNombre] || 0) + 1; });
     return acc;
-  }, [usuariosNormalizados]);
+  }, [todosNorm]);
   const topLocalidades = topN(porLocalidad, 10);
   const locMax = Math.max(...topLocalidades.map(([,v])=>v), 1);
 
-  // DNI
-  const conDni = usuariosNormalizados.filter(u => u.dniEscaneado).length;
-  const sinDni = filteredCount - conDni;
+  // DNI — sobre universo completo
+  const conDni = todosNorm.filter(u => u.dniEscaneado).length;
+  const sinDni = totalActivos - conDni;
 
-  // Categorías
+  // Categorías — sobre universo completo
   const categorias = useMemo(() => {
     const acc = {};
-    usuariosNormalizados.forEach(u => {
-      acc[u.categoriaFix] = (acc[u.categoriaFix] || 0) + 1;
-    });
+    todosNorm.forEach(u => { acc[u.categoriaFix] = (acc[u.categoriaFix] || 0) + 1; });
     return acc;
-  }, [usuariosNormalizados]);
+  }, [todosNorm]);
   const topCategorias = topN(categorias, 8);
 
-  // Evolución de altas
+  // Evolución de altas — sobre filtrados por fecha
   const altasPorFecha = useMemo(() => {
     const acc = {};
-    usuariosNormalizados.forEach(u => {
+    filtradosNorm.forEach(u => {
       const f = u.fechaCreacion?.slice(0,10);
       if (f) acc[f] = (acc[f] || 0) + 1;
     });
     return acc;
-  }, [usuariosNormalizados]);
+  }, [filtradosNorm]);
   const altasEntries = Object.entries(altasPorFecha).sort((a,b) => a[0].localeCompare(b[0]));
   const altasVals    = altasEntries.map(([,v]) => v);
 
-  // Recientes
+  // Recientes — sobre filtrados por fecha
   const recientes = useMemo(() =>
-    [...usuariosNormalizados].sort((a,b) => new Date(b.fechaCreacion) - new Date(a.fechaCreacion)),
-    [usuariosNormalizados]
+    [...filtradosNorm].sort((a,b) => new Date(b.fechaCreacion) - new Date(a.fechaCreacion)),
+    [filtradosNorm]
   );
-  const pageStart         = paginaRecientes * POR_PAGINA;
-  const recientesPagina   = recientes.slice(pageStart, pageStart + POR_PAGINA);
-  const totalPaginas      = Math.ceil(recientes.length / POR_PAGINA);
+  const pageStart       = paginaRecientes * POR_PAGINA;
+  const recientesPagina = recientes.slice(pageStart, pageStart + POR_PAGINA);
+  const totalPaginas    = Math.ceil(recientes.length / POR_PAGINA);
 
   // Localidad options para el select
   const localidadOptions = useMemo(() => [...new Set(
-    usuariosNormalizados.map(u => u.localidadNombre).filter(l => l && l !== "Sin dato")
-  )].sort(), [usuariosNormalizados]);
+    todosNorm.map(u => u.localidadNombre).filter(l => l && l !== "Sin dato")
+  )].sort(), [todosNorm]);
 
-  // Gráfico evolución
+  // Gráfico evolución altas
   const W=700, H=90, PAD=8;
   const altasMax = Math.max(...altasVals, 1);
   const altasPts = altasVals.map((v,i) => [
@@ -855,7 +862,7 @@ function ViewUsuarios() {
             <span>⚙</span> FILTROS DE USUARIOS
             {hasActiveFilters && (
               <span style={{background:T.accent,color:"#fff",borderRadius:20,padding:"1px 8px",fontSize:10,fontWeight:700}}>
-                activos · {filteredCount.toLocaleString("es-AR")} usuarios
+                activos · {filteredCount.toLocaleString("es-AR")} altas en período
               </span>
             )}
           </span>
@@ -865,7 +872,7 @@ function ViewUsuarios() {
         {userFiltersOpen && (
           <div style={{padding:"0 18px 16px",borderTop:`1px solid rgba(139,92,246,0.1)`}}>
             <div style={{fontSize:10,color:T.muted,fontFamily:"'Inter',sans-serif",marginBottom:12,marginTop:12}}>
-              Los filtros se aplican en el servidor. El KPI "Usuarios Totales" siempre muestra el total real del sistema.
+              La fecha filtra solo el KPI "Altas en período" y la tabla de recientes. Plataforma, sexo, edad y localidad muestran el universo completo de activos.
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 2fr auto",gap:14,alignItems:"end"}}>
               <div>
@@ -873,7 +880,7 @@ function ViewUsuarios() {
                 <input type="date"
                   value={userFilters.fechaDesde}
                   max={todayAR}
-                  onChange={e=>{ setUserFilters(f=>({...f,fechaDesde:e.target.value})); setPaginaRecientes(0); }}
+                  onChange={e=>setUserFilters(f=>({...f,fechaDesde:e.target.value}))}
                   style={dateInp}/>
               </div>
               <div>
@@ -881,20 +888,20 @@ function ViewUsuarios() {
                 <input type="date"
                   value={userFilters.fechaHasta}
                   max={todayAR}
-                  onChange={e=>{ setUserFilters(f=>({...f,fechaHasta:e.target.value})); setPaginaRecientes(0); }}
+                  onChange={e=>setUserFilters(f=>({...f,fechaHasta:e.target.value}))}
                   style={dateInp}/>
               </div>
               <div>
                 <label style={lbl}>Localidad / CGM</label>
                 <select value={userFilters.cgm}
-                  onChange={e=>{ setUserFilters(f=>({...f,cgm:e.target.value})); setPaginaRecientes(0); }}
+                  onChange={e=>setUserFilters(f=>({...f,cgm:e.target.value}))}
                   style={baseInp}>
                   <option value="">Todas</option>
                   {localidadOptions.map(l => <option key={l} value={l}>{l}</option>)}
                 </select>
               </div>
               <button
-                onClick={()=>{ setUserFilters({fechaDesde:firstOfMonthAR,fechaHasta:todayAR,cgm:""}); setPaginaRecientes(0); }}
+                onClick={()=>setUserFilters({fechaDesde:firstOfMonthAR,fechaHasta:todayAR,cgm:""})}
                 style={{background:"rgba(139,92,246,0.12)",border:`1px solid ${T.border}`,color:T.text2,borderRadius:10,padding:"7px 14px",fontSize:11,fontFamily:"'Inter',sans-serif",cursor:"pointer",fontWeight:600,height:34,whiteSpace:"nowrap"}}
               >↺ Resetear</button>
             </div>
@@ -902,13 +909,12 @@ function ViewUsuarios() {
         )}
       </div>
 
-      {/* ── Header (sin botón Actualizar) ── */}
+      {/* ── Header ── */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
         <div style={{fontSize:10,color:T.muted,fontFamily:"'Inter',sans-serif",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
           {ultimaActualizacion && <span>🕐 Actualizado: {ultimaActualizacion}</span>}
-          {filteredCount > 0 && <span style={{color:"#475569"}}>· Mostrando: {filteredCount.toLocaleString("es-AR")} usuarios</span>}
+          {totalActivos > 0 && <span style={{color:"#475569"}}>· Total activos cargados: {totalActivos.toLocaleString("es-AR")}</span>}
         </div>
-        {/* Nota de actualización diaria */}
         <div style={{fontSize:10,color:T.muted,fontFamily:"'Inter',sans-serif",background:"rgba(16,185,129,0.07)",border:"1px solid rgba(16,185,129,0.2)",borderRadius:8,padding:"4px 12px",display:"flex",alignItems:"center",gap:6}}>
           <span style={{color:T.green}}>🔄</span>
           Los usuarios se actualizan todos los días a las 22hs (Argentina)
@@ -917,10 +923,11 @@ function ViewUsuarios() {
 
       {/* ── KPIs ── */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(175px,1fr))",gap:12,marginBottom:20}}>
+        {/* FIX 1: Total real del sistema via count */}
         <KPI
           label="Usuarios Totales"
           value={totalSistema != null ? fmtNum(totalSistema) : "—"}
-          sub="total en el sistema"
+          sub="activos en el sistema"
           color={T.accent} icon="👥"
         />
         <KPI
@@ -933,25 +940,25 @@ function ViewUsuarios() {
           label="Edad Promedio"
           value={edadProm !== "—" ? `${edadProm} años` : "—"}
           sub={edadesValidas.length > 0
-            ? `mín ${edadMin} · máx ${edadMax} · ${edadesValidas.length} con edad`
-            : "Solo 18–100"}
+            ? `mín ${edadMin} · máx ${edadMax} · ${edadesValidas.length.toLocaleString("es-AR")} con edad`
+            : "Solo 18–100 años"}
           color="#38bdf8" icon="🎂"
         />
         <KPI
           label="Con DNI Escaneado"
-          value={filteredCount > 0 ? `${((conDni/filteredCount)*100).toFixed(0)}%` : "—"}
-          sub={`${fmtNum(conDni)} de ${fmtNum(filteredCount)}`}
+          value={totalActivos > 0 ? `${((conDni/totalActivos)*100).toFixed(0)}%` : "—"}
+          sub={`${fmtNum(conDni)} de ${fmtNum(totalActivos)}`}
           color={T.amber} icon="🪪"
         />
       </div>
 
-      {/* ── Fila 1: Localidad / Edad / Sexo+Plataforma ── */}
+      {/* ── Fila 1: Localidad / Edad / Sexo + Plataforma ── */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1.4fr 0.7fr",gap:14,marginBottom:14}}>
         <Card title="Usuarios por Localidad" icon="📍">
           {topLocalidades.length === 0
             ? <div style={{color:T.muted,fontSize:11}}>Sin datos</div>
             : topLocalidades.map(([loc,val]) => (
-                <HBar key={loc} label={loc} value={val} max={locMax} color={T.accent} total={filteredCount}/>
+                <HBar key={loc} label={loc} value={val} max={locMax} color={T.accent} total={totalActivos}/>
               ))
           }
         </Card>
@@ -959,9 +966,9 @@ function ViewUsuarios() {
         <Card title="Distribución por Edad (18–100 años)" icon="🎂">
           <div style={{fontSize:10,color:T.muted,marginBottom:12,fontFamily:"'Inter',sans-serif"}}>
             Edades fuera de rango o sin fecha se excluyen.
-            {edadesValidas.length < filteredCount && (
+            {edadesValidas.length < totalActivos && (
               <span style={{color:T.amber,marginLeft:6}}>
-                ⚠ {(filteredCount - edadesValidas.length).toLocaleString("es-AR")} sin dato
+                ⚠ {(totalActivos - edadesValidas.length).toLocaleString("es-AR")} sin dato
               </span>
             )}
           </div>
@@ -978,16 +985,16 @@ function ViewUsuarios() {
                     <HBar key={s} label={s} value={v}
                       max={sexoMaxVal}
                       color={sexoColors[s] || T.muted}
-                      total={filteredCount}/>
+                      total={totalActivos}/>
                   ))
             }
           </Card>
+          {/* FIX 2: Plataforma sobre universo completo */}
           <Card title="Plataforma" icon="📱" style={{flex:1}}>
             {Object.keys(porPlataforma).length === 0
               ? <div style={{color:T.muted,fontSize:11}}>Sin datos</div>
               : Object.entries(porPlataforma)
                   .sort((a,b) => b[1]-a[1])
-                  .slice(0, 5)
                   .map(([p,v]) => (
                     <HBar key={p} label={p} value={v}
                       max={platMaxVal}
@@ -995,7 +1002,7 @@ function ViewUsuarios() {
                         p.toLowerCase().includes("ios")     ? "#38bdf8" :
                         p.toLowerCase().includes("android") ? T.green   : T.muted
                       }
-                      total={filteredCount}/>
+                      total={totalActivos}/>
                   ))
             }
           </Card>
@@ -1009,7 +1016,7 @@ function ViewUsuarios() {
             const colors=[T.accent,T.green,T.amber,T.red,"#38bdf8","#f472b6","#a78bfa","#34d399"];
             return <HBar key={cat} label={cat} value={val}
               max={Math.max(...topCategorias.map(([,v])=>v),1)}
-              color={colors[i%colors.length]} total={filteredCount}/>;
+              color={colors[i%colors.length]} total={totalActivos}/>;
           })}
         </Card>
 
@@ -1018,9 +1025,9 @@ function ViewUsuarios() {
             <div style={{position:"relative",width:80,height:80,flexShrink:0}}>
               <svg width="80" height="80" viewBox="0 0 80 80">
                 <circle cx="40" cy="40" r="28" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="11"/>
-                {filteredCount > 0 && (
+                {totalActivos > 0 && (
                   <circle cx="40" cy="40" r="28" fill="none" stroke={T.green} strokeWidth="11"
-                    strokeDasharray={`${(conDni/filteredCount)*175.9} 175.9`}
+                    strokeDasharray={`${(conDni/totalActivos)*175.9} 175.9`}
                     strokeDashoffset="0"
                     style={{transform:"rotate(-90deg)",transformOrigin:"40px 40px"}}
                     opacity="0.85"/>
@@ -1030,18 +1037,18 @@ function ViewUsuarios() {
             </div>
             <div>
               <div style={{fontSize:28,fontWeight:800,color:T.green,fontFamily:"'Inter',sans-serif",lineHeight:1}}>
-                {filteredCount > 0 ? `${((conDni/filteredCount)*100).toFixed(1)}%` : "—"}
+                {totalActivos > 0 ? `${((conDni/totalActivos)*100).toFixed(1)}%` : "—"}
               </div>
               <div style={{fontSize:11,color:T.text2,marginTop:4,fontFamily:"'Inter',sans-serif"}}>con DNI escaneado</div>
             </div>
           </div>
-          <HBar label="Con DNI" value={conDni} max={filteredCount} color={T.green} total={filteredCount}/>
-          <HBar label="Sin DNI" value={sinDni} max={filteredCount} color={T.red}   total={filteredCount}/>
+          <HBar label="Con DNI" value={conDni} max={totalActivos} color={T.green} total={totalActivos}/>
+          <HBar label="Sin DNI" value={sinDni} max={totalActivos} color={T.red}   total={totalActivos}/>
         </Card>
       </div>
 
-      {/* ── Evolución de altas ── */}
-      <Card title="Evolución de Altas" icon="📈" style={{marginBottom:14}}>
+      {/* ── Evolución de altas (filtrada por fecha) ── */}
+      <Card title={`Evolución de Altas · ${userFilters.fechaDesde || "–"} → ${userFilters.fechaHasta || "–"}`} icon="📈" style={{marginBottom:14}}>
         {altasVals.length < 2 ? (
           <div style={{color:T.muted,fontSize:11,fontFamily:"'Inter',sans-serif"}}>Sin suficientes datos para el período seleccionado</div>
         ) : (
@@ -1071,8 +1078,8 @@ function ViewUsuarios() {
         )}
       </Card>
 
-      {/* ── Tabla últimos registrados ── */}
-      <Card title="Últimos Usuarios Registrados" icon="🆕">
+      {/* ── Tabla últimos registrados (filtrada por fecha) ── */}
+      <Card title="Últimos Usuarios Registrados en el Período" icon="🆕">
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:11,fontFamily:"'Inter',sans-serif"}}>
             <thead>
@@ -1223,7 +1230,7 @@ export default function App() {
   ];
 
   const isUsuariosTab = view === "usuarios";
-  const now = new Date();
+  const now = getArDate();
   const dateLabel = now.toLocaleDateString("es-AR",{day:"2-digit",month:"short",year:"numeric"});
 
   return (
