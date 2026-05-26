@@ -1179,56 +1179,34 @@ async function cargarSirenas() {
     const populate = encodeURIComponent(JSON.stringify([{ path: "localidad", select: "nombre" }]));
     const headers = { Authorization: `Bearer ${NOVIT_TOKEN}` };
 
-    // Obtener total real primero
-    const countRes = await fetch(`${SIRENAS_API}?limit=1&page=1`, { headers });
-    const countJson = await countRes.json();
-    const totalEsperado = countJson.totalCount || 0;
-    const totalPages = Math.ceil(totalEsperado / PAGE);
+    const firstRes = await fetch(`${SIRENAS_API}?limit=${PAGE}&page=1&populate=${populate}`, { headers });
+    const firstJson = await firstRes.json();
+    const total = firstJson.totalCount || 0;
+    const totalPages = Math.ceil(total / PAGE);
 
-    let all = [];
-    let intentos = 0;
-    const MAX_INTENTOS = 3;
+    let all = [...(firstJson.datos || [])];
 
-    // Reintentar hasta tener el total correcto o agotar intentos
-    while (all.length < totalEsperado && intentos < MAX_INTENTOS) {
-      intentos++;
-      all = [];
-
-      const BATCH = 8;
-      // Primera página
-      const firstRes = await fetch(`${SIRENAS_API}?limit=${PAGE}&page=1&populate=${populate}`, { headers });
-      const firstJson = await firstRes.json();
-      all = [...(firstJson.datos || [])];
-
-      // Resto en lotes
-      for (let i = 2; i <= totalPages; i += BATCH) {
-        const batch = Array.from(
-          { length: Math.min(BATCH, totalPages - i + 1) },
-          (_, j) => i + j
-        );
-        const results = await Promise.all(
-          batch.map(p =>
-            fetch(`${SIRENAS_API}?limit=${PAGE}&page=${p}&populate=${populate}`, { headers })
-              .then(r => r.json())
-              .then(j => j.datos || [])
-              .catch(() => [])
-          )
-        );
-        all = [...all, ...results.flat()];
-        if (i + BATCH <= totalPages) await new Promise(r => setTimeout(r, 150));
-      }
-
-      // Deduplicar
-      all = Array.from(new Map(all.map(s => [s._id, s])).values());
-
-      if (all.length < totalEsperado) {
-        console.warn(`Intento ${intentos}: traje ${all.length}/${totalEsperado}, reintentando...`);
-        await new Promise(r => setTimeout(r, 500 * intentos));
-      }
+    const BATCH = 8; // Lotes más chicos para no saturar
+    for (let i = 2; i <= totalPages; i += BATCH) {
+      const batch = Array.from(
+        { length: Math.min(BATCH, totalPages - i + 1) },
+        (_, j) => i + j
+      );
+      const results = await Promise.all(
+        batch.map(p =>
+          fetch(`${SIRENAS_API}?limit=${PAGE}&page=${p}&populate=${populate}`, { headers })
+            .then(r => r.json())
+            .then(j => j.datos || [])
+            .catch(() => [])
+        )
+      );
+      all = [...all, ...results.flat()];
+      // Pequeña pausa entre lotes para respetar rate limit
+      if (i + BATCH <= totalPages) await new Promise(r => setTimeout(r, 150));
     }
 
-    console.log(`Sirenas cargadas: ${all.length}/${totalEsperado}`);
-    setSirenas(all);
+    const unique = Array.from(new Map(all.map(s => [s._id, s])).values());
+    setSirenas(unique);
     setUltimaAct(new Date().toLocaleTimeString("es-AR"));
     setEstado("ok");
   } catch (e) {
@@ -1236,11 +1214,12 @@ async function cargarSirenas() {
     setEstado("error");
   }
 }
+
   useEffect(() => { cargarSirenas(); }, []);
 
   // Auto-refresh cada 2 minutos
   useEffect(() => {
-    const t = setInterval(cargarSirenas, 60 * 60 * 1000);
+    const t = setInterval(cargarSirenas, 2 * 60 * 1000);
     return () => clearInterval(t);
   }, []);
 
@@ -1469,7 +1448,7 @@ const rssiProm = rssiValidos.length
         </div>
         <div style={{fontSize:10,color:T.muted,fontFamily:"'Inter',sans-serif",background:"rgba(56,189,248,0.07)",border:"1px solid rgba(56,189,248,0.2)",borderRadius:8,padding:"4px 12px",display:"flex",alignItems:"center",gap:6}}>
           <span style={{color:"#38bdf8"}}>⚡</span>
-          Datos en vivo · actualización automática cada 60 min
+          Datos en vivo · actualización automática cada 2 min
           {ultimaAct && <span style={{color:"#475569",marginLeft:6}}>· {ultimaAct}</span>}
         </div>
       </div>
