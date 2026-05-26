@@ -1177,35 +1177,25 @@ async function cargarSirenas() {
   try {
     const PAGE = 50;
     const populate = encodeURIComponent(JSON.stringify([{ path: "localidad", select: "nombre" }]));
-    
-    // Primera request para saber el total
-    const first = await fetch(`${SIRENAS_API}?limit=${PAGE}&page=1&populate=${populate}`, {
+
+    // Obtener total primero con limit=1
+    const countRes = await fetch(`${SIRENAS_API}?limit=1&page=1`, {
       headers: { Authorization: `Bearer ${NOVIT_TOKEN}` },
     });
-    const firstJson = await first.json();
-    const total = firstJson.totalCount || 0;
-    const firstDatos = firstJson.datos || [];
-    
-    if (total <= PAGE) {
-      setSirenas(firstDatos);
-      setUltimaAct(new Date().toLocaleTimeString("es-AR"));
-      setEstado("ok");
-      return;
-    }
-
-    // Calcular páginas restantes y lanzarlas TODAS en paralelo
+    const countJson = await countRes.json();
+    const total = countJson.totalCount || 0;
     const totalPages = Math.ceil(total / PAGE);
-    const pageNums = Array.from({ length: totalPages - 1 }, (_, i) => i + 2);
-    
+
+    // Lanzar TODAS las páginas en paralelo desde página 1
     const results = await Promise.all(
-      pageNums.map(p =>
+      Array.from({ length: totalPages }, (_, i) => i + 1).map(p =>
         fetch(`${SIRENAS_API}?limit=${PAGE}&page=${p}&populate=${populate}`, {
           headers: { Authorization: `Bearer ${NOVIT_TOKEN}` },
         }).then(r => r.json()).then(j => j.datos || [])
       )
     );
 
-    const all = [firstDatos, ...results].flat();
+    const all = results.flat();
     setSirenas(all);
     setUltimaAct(new Date().toLocaleTimeString("es-AR"));
     setEstado("ok");
