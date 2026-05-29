@@ -5,7 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 const SUPABASE_URL = "https://ygwjvkjrpojxjczcholu.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlnd2p2a2pycG9qeGpjemNob2x1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNzgyNDYsImV4cCI6MjA5NDk1NDI0Nn0.NvCxB2sXVxa4kQVGiVPs6_x1cinRi4UFpBJud6sx1Nw";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-
+const APP_ENABLED = import.meta.env.VITE_APP_ENABLED !== "false";
 const VECINOS_API = "https://apis2.novit.gpesistemas.ar/monitoreo/configvecinos";
 
 // ─── GEOJSON COMPLETO ─────────────────────────────────────────────────────────
@@ -21,7 +21,7 @@ const CAT_COLORS = {
 };
 const DIAS = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
 
-function catColor(cat) { return CAT_COLORS[cat] || CAT_COLORS.default; }
+function catColor(cat) {  CAT_COLORS[cat] || CAT_COLORS.default; }
 function getHour(h) { if (!h) return null; return parseInt(h.split(":")[0], 10); }
 
 function parseFecha(fechaStr) {
@@ -1762,6 +1762,16 @@ export default function App() {
   const now = getArDate();
   const dateLabel = now.toLocaleDateString("es-AR",{day:"2-digit",month:"short",year:"numeric"});
 
+  if (!APP_ENABLED) return (
+  <div style={{minHeight:"100vh",background:T.bg,display:"flex",alignItems:"center",justifyContent:"center"}}>
+    <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:20,padding:"40px 36px",width:360,textAlign:"center"}}>
+      <div style={{fontSize:32,marginBottom:16}}>🔒</div>
+      <div style={{fontSize:16,fontWeight:800,color:T.text,marginBottom:8}}>Sistema en mantenimiento</div>
+      <div style={{fontSize:12,color:T.muted}}>El sistema no está disponible en este momento.<br/>Intentá más tarde.</div>
+    </div>
+  </div>
+);
+
   return (
     <>
       <style>{`
@@ -1832,7 +1842,7 @@ export default function App() {
             {TABS.map(t=>{
               const isActive = view===t.id;
               const isUsers  = t.id==="usuarios";
-              return (
+               (
                 <button key={t.id} onClick={()=>setView(t.id)} style={{
                   background: isActive?"rgba(139,92,246,0.15)":"transparent",
                   border:`1px solid ${isActive?T.accent:isUsers?"rgba(16,185,129,0.35)":T.border}`,
