@@ -1766,8 +1766,8 @@ export default function App() {
   <div style={{minHeight:"100vh",background:T.bg,display:"flex",alignItems:"center",justifyContent:"center"}}>
     <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:20,padding:"40px 36px",width:360,textAlign:"center"}}>
       <div style={{fontSize:32,marginBottom:16}}>🔒</div>
-      <div style={{fontSize:16,fontWeight:800,color:T.text,marginBottom:8}}>Sistema en mantenimiento</div>
-      <div style={{fontSize:12,color:T.muted}}>El sistema no está disponible en este momento.<br/>Intentá más tarde.</div>
+      <div style={{fontSize:16,fontWeight:800,color:T.text,marginBottom:8}}>Sistema fuera de servicio</div>
+      <div style={{fontSize:12,color:T.muted}}>El sistema no está disponible en este momento.</div>
     </div>
   </div>
 );
