@@ -252,7 +252,7 @@ function FiltersPanel({ filters, setFilters, options, open, setOpen }) {
               </select>
             </div>
             <button
-              onClick={()=>setFilters({fechaDesde:firstOfMonthStr(),fechaHasta:todayStr(),cgm:"",categoria:"",tipo:"",turno:""})}
+              onClick={()=>setFilters({fechaDesde:firstOfMonthStr(),fechaHasta:"2026-04-30",cgm:"",categoria:"",tipo:"",turno:""})}
               style={{background:"rgba(139,92,246,0.12)",border:`1px solid ${T.border}`,color:T.text2,borderRadius:10,padding:"7px 14px",fontSize:11,fontFamily:"'Inter',sans-serif",cursor:"pointer",fontWeight:600,width:"100%",height:34}}
             >↺ Resetear</button>
           </div>
@@ -629,7 +629,7 @@ function ViewUsuarios() {
   const POR_PAGINA = 8;
 
   // ── Fecha AR correcta ──────────────────────────────────────────────────────
-  const todayAR = useMemo(() => todayStr(), []);
+  const todayAR = useMemo(() => "2026-04-30", []);
   const firstOfMonthAR = useMemo(() => firstOfMonthStr(), []);
 
   const [userFilters, setUserFilters] = useState({
@@ -1678,7 +1678,7 @@ export default function App() {
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [filters, setFilters] = useState({
     fechaDesde: firstOfMonthStr(),
-    fechaHasta: todayStr(),
+    fechaHasta: "2026-04-30",
     cgm: "",
     categoria: "",
     tipo: "",
