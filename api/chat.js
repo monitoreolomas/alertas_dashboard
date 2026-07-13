@@ -4,10 +4,11 @@ const SUPABASE_URL = "https://ygwjvkjrpojxjczcholu.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlnd2p2a2pycG9qeGpjemNob2x1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNzgyNDYsImV4cCI6MjA5NDk1NDI0Nn0.NvCxB2sXVxa4kQVGiVPs6_x1cinRi4UFpBJud6sx1Nw";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// Se puede pisar con la env var OPENROUTER_MODEL en Vercel si este modelo
-// gratuito deja de estar disponible. Verificar en https://openrouter.ai/models
-// filtrando por "Free" y que soporte "tools" (function calling).
-const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "meta-llama/llama-3.3-70b-instruct:free";
+// "openrouter/free" es un router automático: elige entre los modelos
+// gratuitos disponibles que soporten tool calling, evitando que un solo
+// proveedor saturado tire un 429. Se puede pisar con la env var
+// OPENROUTER_MODEL en Vercel para fijar un modelo puntual si hiciera falta.
+const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "openrouter/free";
 const MAX_TOOL_ITERATIONS = 6;
 const MAX_GROUP_ROWS = 20000;
 
