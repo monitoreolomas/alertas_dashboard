@@ -21,7 +21,7 @@ const CAT_COLORS = {
 };
 const DIAS = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
 
-function catColor(cat) {  CAT_COLORS[cat] || CAT_COLORS.default; }
+function catColor(cat) { return CAT_COLORS[cat] || CAT_COLORS.default; }
 function getHour(h) { if (!h) return null; return parseInt(h.split(":")[0], 10); }
 
 function parseFecha(fechaStr) {
@@ -252,7 +252,7 @@ function FiltersPanel({ filters, setFilters, options, open, setOpen }) {
               </select>
             </div>
             <button
-              onClick={()=>setFilters({fechaDesde:firstOfMonthStr(),fechaHasta:"2026-04-30",cgm:"",categoria:"",tipo:"",turno:""})}
+              onClick={()=>setFilters({fechaDesde:"2026-04-01",fechaHasta:"2026-04-30",cgm:"",categoria:"",tipo:"",turno:""})}
               style={{background:"rgba(139,92,246,0.12)",border:`1px solid ${T.border}`,color:T.text2,borderRadius:10,padding:"7px 14px",fontSize:11,fontFamily:"'Inter',sans-serif",cursor:"pointer",fontWeight:600,width:"100%",height:34}}
             >↺ Resetear</button>
           </div>
@@ -630,7 +630,7 @@ function ViewUsuarios() {
 
   // ── Fecha AR correcta ──────────────────────────────────────────────────────
   const todayAR = useMemo(() => "2026-04-30", []);
-  const firstOfMonthAR = useMemo(() => firstOfMonthStr(), []);
+  const firstOfMonthAR = useMemo(() => "2026-04-01", []);
 
   const [userFilters, setUserFilters] = useState({
     fechaDesde: firstOfMonthAR,
@@ -1677,7 +1677,7 @@ export default function App() {
   const [view, setView] = useState("mapa");
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [filters, setFilters] = useState({
-    fechaDesde: firstOfMonthStr(),
+    fechaDesde: "2026-04-01",
     fechaHasta: "2026-04-30",
     cgm: "",
     categoria: "",
@@ -1842,7 +1842,7 @@ export default function App() {
             {TABS.map(t=>{
               const isActive = view===t.id;
               const isUsers  = t.id==="usuarios";
-               (
+              return (
                 <button key={t.id} onClick={()=>setView(t.id)} style={{
                   background: isActive?"rgba(139,92,246,0.15)":"transparent",
                   border:`1px solid ${isActive?T.accent:isUsers?"rgba(16,185,129,0.35)":T.border}`,
