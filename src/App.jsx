@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo, useRef, Fragment } from "react";
 import { createClient } from "@supabase/supabase-js";
+import { T } from "./theme.js";
+import ChatWidget from "./ChatWidget.jsx";
 
 
 const SUPABASE_URL = "https://ygwjvkjrpojxjczcholu.supabase.co";
@@ -85,20 +87,7 @@ function calcularEdad(fechaNacimiento) {
 }
 
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
-const T = {
-  bg:      "#0a0a12",
-  bg2:     "#111120",
-  card:    "#16162a",
-  border:  "rgba(139,92,246,0.22)",
-  accent:  "#8b5cf6",
-  accent2: "#6d28d9",
-  green:   "#10b981",
-  amber:   "#f59e0b",
-  red:     "#ef4444",
-  muted:   "#64748b",
-  text:    "#e2e8f0",
-  text2:   "#94a3b8",
-};
+// (definidos en ./theme.js para que ChatWidget.jsx también pueda usarlos)
 
 // ─── SHARED COMPONENTS ────────────────────────────────────────────────────────
 function Sparkline({ values, color=T.accent, w=90, h=26 }) {
@@ -1917,6 +1906,8 @@ export default function App() {
             CGM · Análisis Operativo &nbsp;·&nbsp; {filters.fechaDesde||"–"} → {filters.fechaHasta||"–"} &nbsp;·&nbsp; {filteredData.length.toLocaleString()} registros
           </div>
         </div>
+
+        <ChatWidget/>
       </div>
     </>
   );
