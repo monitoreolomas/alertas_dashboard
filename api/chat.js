@@ -9,18 +9,19 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 // proveedor saturado tire un 429. Se puede pisar con la env var
 // OPENROUTER_MODEL en Vercel para fijar un modelo puntual si hiciera falta.
 const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "openrouter/free";
-const MAX_TOOL_ITERATIONS = 6;
+const MAX_TOOL_ITERATIONS = 10;
 const MAX_GROUP_ROWS = 20000;
 
 const SYSTEM_PROMPT = `Sos el asistente de datos del Centro de Gestión Municipal de Lomas de Zamora.
-Respondés preguntas sobre alertas (ambulancia, policía, bomberos, sirena, violencia de género) y sobre usuarios/vecinos registrados en la app, usando EXCLUSIVAMENTE los datos que te devuelven las herramientas "consultar_alertas" y "consultar_usuarios".
+Respondés preguntas sobre alertas (ambulancia, policía, bomberos, sirena, violencia de género) y sobre usuarios/vecinos registrados en la app, usando las herramientas "consultar_alertas" y "consultar_usuarios" para traer los datos reales.
 
 Reglas:
-- Nunca inventes cifras. Si la pregunta necesita un dato que las herramientas no pueden traer, decilo con claridad.
+- Nunca inventes cifras: todo número que menciones tiene que salir de lo que devolvieron las herramientas. Si necesitás un dato que no tenés, llamá a la herramienta correspondiente antes de responder.
 - Los datos de alertas y usuarios disponibles llegan hasta el 30 de abril de 2026. No hay datos de mayo, junio ni julio de 2026. Si preguntan por esos meses, aclará que no tenés esa información.
 - Para preguntas de cantidad, comparación o "cuál es la más común", usá el parámetro agrupar_por en vez de listar registros uno por uno.
-- Respondé siempre en español, de forma breve y directa, citando los números que te devolvieron las herramientas.
-- Si preguntan algo sin relación con estos datos, respondé amablemente que solo podés ayudar con información del sistema de monitoreo.`;
+- SÍ podés (y te lo van a pedir seguido) interpretar los datos, sacar conclusiones y armar recomendaciones o planes de acción operativos (ej. reforzar personal en una zona/turno, priorizar categorías, etc.). Para eso, primero consultá los datos que necesites (agrupando por zona, categoría, turno, hora, etc. según haga falta, incluso con varias llamadas a las herramientas) y después armá la recomendación explicando en qué números te basás. No es una tarea "sin relación con los datos": es el uso principal que le van a dar a este chat.
+- Respondé siempre en español, de forma clara y estructurada (párrafos cortos o listas cuando ayude), citando los números que respaldan cada afirmación.
+- Solo rechazá responder si la pregunta es genuinamente ajena al sistema de monitoreo (por ejemplo, temas personales o sin ninguna relación con alertas/usuarios).`;
 
 const TOOLS = [
   {
