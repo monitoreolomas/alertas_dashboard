@@ -1659,7 +1659,7 @@ const rssiProm = rssiValidos.length
 }
 
 // ─── APP PRINCIPAL ────────────────────────────────────────────────────────────
-export default function App() {
+export default function App({ onVolver }) {
   const [allData, setAllData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -1792,6 +1792,11 @@ export default function App() {
           display:"flex",alignItems:"center",gap:18,
           boxShadow:"0 4px 24px rgba(0,0,0,0.5)",
         }}>
+          {onVolver && (
+            <button onClick={onVolver} style={{background:"rgba(139,92,246,0.12)",border:`1px solid ${T.border}`,color:T.text2,borderRadius:10,padding:"8px 12px",fontSize:12,fontWeight:600,cursor:"pointer",flexShrink:0}}>
+              ← Volver
+            </button>
+          )}
           <div style={{width:40,height:40,borderRadius:10,background:`linear-gradient(135deg,${T.accent},${T.accent2})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>⚡</div>
           <div>
             <div style={{fontSize:16,fontWeight:800,color:T.text,letterSpacing:"-0.3px"}}>Centro de Gestión Municipal</div>
