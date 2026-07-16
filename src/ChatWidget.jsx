@@ -340,7 +340,21 @@ export default function ChatWidget({ contexto = "alertas" }) {
                 onClick={nuevoChat}
                 disabled={loading}
                 title="Nueva conversación"
-                style={{ background: "none", border: "none", color: loading ? "rgba(154,154,163,0.4)" : T.muted, cursor: loading ? "default" : "pointer", fontSize: 16, fontWeight: 700, lineHeight: 1, padding: "4px 8px" }}
+                style={{
+                  background: loading ? "rgba(139,92,246,0.15)" : "rgba(139,92,246,0.22)",
+                  border: `1px solid ${loading ? "rgba(139,92,246,0.25)" : T.accent}`,
+                  color: loading ? T.muted : T.accent,
+                  cursor: loading ? "default" : "pointer",
+                  fontSize: 15,
+                  fontWeight: 800,
+                  lineHeight: 1,
+                  width: 26,
+                  height: 26,
+                  borderRadius: 7,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
               >
                 +
               </button>

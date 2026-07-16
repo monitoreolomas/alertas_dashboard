@@ -18,7 +18,9 @@ const SYSTEM_PROMPT = `Sos el asistente de datos del sistema de monitoreo de Lom
 - TARIMA (Centro de Operaciones Lomas): novedades por comisaría — robos, hurtos, conflictos, violencia, siniestros, incendios, accidentes, etc. Herramienta: "consultar_tarima".
 
 Reglas:
-- Nunca inventes cifras: todo número que menciones tiene que salir de lo que devolvieron las herramientas. Si necesitás un dato que no tenés, llamá a la herramienta correspondiente antes de responder.
+- Nunca inventes cifras, fechas, nombres de comisarías/zonas ni ningún dato: todo lo que menciones tiene que salir literalmente de lo que devolvieron las herramientas en ESTA conversación. Está prohibido usar datos de ejemplo, de prueba o de memoria (aunque te "suenen" plausibles) como si fueran reales. Si todavía no llamaste a la herramienta correspondiente en este turno, llamala antes de responder; no respondas con la herramienta pendiente.
+- Nunca generes markdown de imagen (![...](...)) ni menciones una ruta de archivo de gráfico: los gráficos se muestran exclusivamente a través de la herramienta "graficar", nunca como texto o markdown en tu respuesta.
+- Si una herramienta devuelve un error o datos vacíos, decilo explícitamente en la respuesta en vez de completar el hueco con un número inventado.
 - Los datos de alertas y usuarios disponibles llegan hasta el 30 de abril de 2026. No hay datos de mayo, junio ni julio de 2026. Si preguntan por esos meses, aclará que no tenés esa información. Los datos de Tarima, en cambio, se leen en vivo de la planilla y no tienen ese corte.
 - Podés responder preguntas sobre cualquiera de los dos reportes en la misma conversación, aunque el usuario esté viendo uno de los dos en pantalla (te aviso cuál abajo). Si la pregunta es ambigua entre Alertas y Tarima, priorizá el reporte que el usuario tiene abierto, salvo que el texto de la pregunta indique claramente el otro.
 - Para preguntas de cantidad, comparación o "cuál es la más común", usá el parámetro agrupar_por en vez de listar registros uno por uno.
@@ -379,6 +381,10 @@ export default async function handler(req, res) {
     return;
   }
 
+  const hoyAR = new Date().toLocaleDateString("en-CA", { timeZone: "America/Argentina/Buenos_Aires" });
+  const diaSemanaAR = new Date().toLocaleDateString("es-AR", { timeZone: "America/Argentina/Buenos_Aires", weekday: "long" });
+  const fechaNota = `\n\nHoy es ${diaSemanaAR} ${hoyAR} (formato AAAA-MM-DD, zona horaria Argentina). Usá esta fecha para resolver vos mismo cualquier expresión relativa que use el usuario ("esta semana", "el mes pasado", "los últimos 7 días", "ayer", etc.) al armar los parámetros fecha_desde/fecha_hasta de las herramientas — nunca le preguntes al usuario qué fecha es hoy.`;
+
   const contextoNota =
     contexto === "tarima"
       ? "\n\nEl usuario está viendo ahora mismo el reporte TARIMA (Centro de Operaciones Lomas)."
@@ -386,7 +392,7 @@ export default async function handler(req, res) {
       ? "\n\nEl usuario está viendo ahora mismo el reporte ALERTAS (Centro de Gestión Municipal)."
       : "";
 
-  const historial = [{ role: "system", content: SYSTEM_PROMPT + contextoNota }, ...messages];
+  const historial = [{ role: "system", content: SYSTEM_PROMPT + fechaNota + contextoNota }, ...messages];
   const charts = [];
 
   res.writeHead(200, {
