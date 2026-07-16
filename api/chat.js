@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { fetchTarimaData } from "../src/tarimaData.js";
 
 const SUPABASE_URL = "https://ygwjvkjrpojxjczcholu.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlnd2p2a2pycG9qeGpjemNob2x1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNzgyNDYsImV4cCI6MjA5NDk1NDI0Nn0.NvCxB2sXVxa4kQVGiVPs6_x1cinRi4UFpBJud6sx1Nw";
@@ -12,16 +13,19 @@ const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "openrouter/free";
 const MAX_TOOL_ITERATIONS = 10;
 const MAX_GROUP_ROWS = 20000;
 
-const SYSTEM_PROMPT = `Sos el asistente de datos del Centro de Gestión Municipal de Lomas de Zamora.
-Respondés preguntas sobre alertas (ambulancia, policía, bomberos, sirena, violencia de género) y sobre usuarios/vecinos registrados en la app, usando las herramientas "consultar_alertas" y "consultar_usuarios" para traer los datos reales.
+const SYSTEM_PROMPT = `Sos el asistente de datos del sistema de monitoreo de Lomas de Zamora. Cubrís DOS reportes:
+- ALERTAS (Centro de Gestión Municipal): ambulancia, policía, bomberos, sirena, violencia de género, y usuarios/vecinos registrados en la app. Herramientas: "consultar_alertas" y "consultar_usuarios".
+- TARIMA (Centro de Operaciones Lomas): novedades por comisaría — robos, hurtos, conflictos, violencia, siniestros, incendios, accidentes, etc. Herramienta: "consultar_tarima".
 
 Reglas:
 - Nunca inventes cifras: todo número que menciones tiene que salir de lo que devolvieron las herramientas. Si necesitás un dato que no tenés, llamá a la herramienta correspondiente antes de responder.
-- Los datos de alertas y usuarios disponibles llegan hasta el 30 de abril de 2026. No hay datos de mayo, junio ni julio de 2026. Si preguntan por esos meses, aclará que no tenés esa información.
+- Los datos de alertas y usuarios disponibles llegan hasta el 30 de abril de 2026. No hay datos de mayo, junio ni julio de 2026. Si preguntan por esos meses, aclará que no tenés esa información. Los datos de Tarima, en cambio, se leen en vivo de la planilla y no tienen ese corte.
+- Podés responder preguntas sobre cualquiera de los dos reportes en la misma conversación, aunque el usuario esté viendo uno de los dos en pantalla (te aviso cuál abajo). Si la pregunta es ambigua entre Alertas y Tarima, priorizá el reporte que el usuario tiene abierto, salvo que el texto de la pregunta indique claramente el otro.
 - Para preguntas de cantidad, comparación o "cuál es la más común", usá el parámetro agrupar_por en vez de listar registros uno por uno.
 - SÍ podés (y te lo van a pedir seguido) interpretar los datos, sacar conclusiones y armar recomendaciones o planes de acción operativos (ej. reforzar personal en una zona/turno, priorizar categorías, etc.). Para eso, primero consultá los datos que necesites (agrupando por zona, categoría, turno, hora, etc. según haga falta, incluso con varias llamadas a las herramientas) y después armá la recomendación explicando en qué números te basás. No es una tarea "sin relación con los datos": es el uso principal que le van a dar a este chat.
+- Cuando la pregunta se preste a comparar cantidades, ver una tendencia en el tiempo, ver una distribución o cruzar dos dimensiones (ej. día × turno), además de responder en texto llamá a la herramienta "graficar" para acompañar la respuesta con un gráfico, usando los números que ya consultaste (nunca inventados). No grafiques respuestas de un solo dato puntual.
 - Respondé siempre en español, de forma clara y estructurada (párrafos cortos o listas cuando ayude), citando los números que respaldan cada afirmación.
-- Solo rechazá responder si la pregunta es genuinamente ajena al sistema de monitoreo (por ejemplo, temas personales o sin ninguna relación con alertas/usuarios).`;
+- Solo rechazá responder si la pregunta es genuinamente ajena a estos dos reportes (por ejemplo, temas personales o sin ninguna relación con los datos).`;
 
 const TOOLS = [
   {
@@ -67,6 +71,74 @@ const TOOLS = [
           },
           limite: { type: "integer", description: "Cantidad máxima de registros a devolver cuando no se agrupa (por defecto 25, máximo 100)." },
         },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "consultar_tarima",
+      description:
+        "Consulta las novedades del reporte Tarima (Centro de Operaciones Lomas): robos, hurtos, conflictos, violencia, heridos, persecuciones, óbitos, incendios, accidentes de tránsito, etc, por comisaría. Usar para cualquier pregunta sobre el reporte Tarima.",
+      parameters: {
+        type: "object",
+        properties: {
+          fecha_desde: { type: "string", description: "Fecha mínima en formato YYYY-MM-DD (inclusive)." },
+          fecha_hasta: { type: "string", description: "Fecha máxima en formato YYYY-MM-DD (inclusive)." },
+          cgm: { type: "string", description: "Nombre exacto de la zona/localidad (CGM), por ejemplo 'Turdera' o 'Banfield'." },
+          categoria: {
+            type: "string",
+            description: "Categoría de la novedad: 'Robo', 'Hurto', 'Conflicto', 'Violencia', 'Heridos', 'Persecución', 'Obito', 'Incendios', 'Accidente de tránsito' u 'Otros'.",
+          },
+          comisaria: { type: "string", description: "Nombre exacto de la comisaría o destacamento, ej. 'Cria 5ta' o 'Dto Turdera'." },
+          turno: { type: "string", enum: ["Mañana", "Tarde", "Noche"] },
+          agrupar_por: {
+            type: "string",
+            enum: ["categoria", "cgm", "comisaria", "turno", "dia_semana", "fecha"],
+            description: "Si se especifica, devuelve un conteo agrupado por ese campo en vez de una lista de registros.",
+          },
+          limite: { type: "integer", description: "Cantidad máxima de registros a devolver cuando no se agrupa (por defecto 25, máximo 100)." },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "graficar",
+      description:
+        "Genera un gráfico visual para acompañar tu respuesta en texto. Usalo cuando la pregunta se preste a comparar cantidades entre categorías, ver una tendencia en el tiempo, ver una distribución, o cruzar dos dimensiones (ej. día × turno). No lo uses para respuestas de un solo dato puntual. Llamalo DESPUÉS de haber consultado los datos reales con las otras herramientas: los valores del gráfico tienen que salir de esos resultados, nunca inventados.",
+      parameters: {
+        type: "object",
+        properties: {
+          tipo: { type: "string", enum: ["barras", "lineas", "torta", "heatmap"], description: "Tipo de gráfico." },
+          titulo: { type: "string", description: "Título breve del gráfico." },
+          etiquetas: {
+            type: "array",
+            items: { type: "string" },
+            description: "Para barras/lineas/torta: las categorías del eje X (o los segmentos de la torta).",
+          },
+          series: {
+            type: "array",
+            description: "Para barras/lineas/torta: una o más series de datos numéricos, cada una con el mismo largo que 'etiquetas'.",
+            items: {
+              type: "object",
+              properties: {
+                nombre: { type: "string" },
+                valores: { type: "array", items: { type: "number" } },
+              },
+              required: ["nombre", "valores"],
+            },
+          },
+          filas: { type: "array", items: { type: "string" }, description: "Solo para heatmap: etiquetas de fila." },
+          columnas: { type: "array", items: { type: "string" }, description: "Solo para heatmap: etiquetas de columna." },
+          matriz: {
+            type: "array",
+            items: { type: "array", items: { type: "number" } },
+            description: "Solo para heatmap: matriz de valores, una fila por cada elemento de 'filas', cada una con el mismo largo que 'columnas'.",
+          },
+        },
+        required: ["tipo", "titulo"],
       },
     },
   },
@@ -238,9 +310,54 @@ async function consultarUsuarios(args) {
   return { total_coincidencias: count, registros_mostrados: registros.length, registros };
 }
 
+const TARIMA_CAMPOS = { categoria: "Categoría", cgm: "CGM", comisaria: "Comisaría", turno: "Turno", dia_semana: "DiaNom", fecha: "fecha" };
+
+async function consultarTarima(args) {
+  const rows = await fetchTarimaData();
+  let filtradas = rows;
+  if (args?.fecha_desde) filtradas = filtradas.filter((r) => r.fecha >= args.fecha_desde);
+  if (args?.fecha_hasta) filtradas = filtradas.filter((r) => r.fecha <= args.fecha_hasta);
+  if (args?.cgm) filtradas = filtradas.filter((r) => r.CGM === args.cgm);
+  if (args?.categoria) filtradas = filtradas.filter((r) => r.Categoría === args.categoria);
+  if (args?.comisaria) filtradas = filtradas.filter((r) => r.Comisaría === args.comisaria);
+  if (args?.turno) filtradas = filtradas.filter((r) => r.Turno === args.turno);
+
+  const total = filtradas.length;
+
+  if (args?.agrupar_por) {
+    const campo = TARIMA_CAMPOS[args.agrupar_por];
+    const counts = {};
+    for (const r of filtradas) {
+      const clave = (campo && r[campo]) || "Sin dato";
+      counts[clave] = (counts[clave] || 0) + 1;
+    }
+    return { total_coincidencias: total, agrupado_por: args.agrupar_por, distribucion: topConteo(counts) };
+  }
+
+  const limite = Math.min(Math.max(parseInt(args?.limite, 10) || 25, 1), 100);
+  const registros = filtradas
+    .slice()
+    .sort((a, b) => (b.fecha !== a.fecha ? b.fecha.localeCompare(a.fecha) : b.hora - a.hora))
+    .slice(0, limite)
+    .map((r) => ({
+      fecha: r.fecha,
+      hora: r.hora,
+      turno: r.Turno,
+      categoria: r.Categoría,
+      subcategoria: r.Subcategoria,
+      comisaria: r.Comisaría,
+      cgm: r.CGM,
+      con_camara: r.con_camara,
+      riesgo: r.riesgo,
+    }));
+
+  return { total_coincidencias: total, registros_mostrados: registros.length, registros };
+}
+
 async function ejecutarHerramienta(nombre, args) {
   if (nombre === "consultar_alertas") return consultarAlertas(args);
   if (nombre === "consultar_usuarios") return consultarUsuarios(args);
+  if (nombre === "consultar_tarima") return consultarTarima(args);
   return { error: `Herramienta desconocida: ${nombre}` };
 }
 
@@ -256,13 +373,21 @@ export default async function handler(req, res) {
     return;
   }
 
-  const { messages } = req.body || {};
+  const { messages, contexto } = req.body || {};
   if (!Array.isArray(messages) || messages.length === 0) {
     res.status(400).json({ error: "Falta el campo 'messages'." });
     return;
   }
 
-  const historial = [{ role: "system", content: SYSTEM_PROMPT }, ...messages];
+  const contextoNota =
+    contexto === "tarima"
+      ? "\n\nEl usuario está viendo ahora mismo el reporte TARIMA (Centro de Operaciones Lomas)."
+      : contexto === "alertas"
+      ? "\n\nEl usuario está viendo ahora mismo el reporte ALERTAS (Centro de Gestión Municipal)."
+      : "";
+
+  const historial = [{ role: "system", content: SYSTEM_PROMPT + contextoNota }, ...messages];
+  const charts = [];
 
   try {
     for (let iter = 0; iter < MAX_TOOL_ITERATIONS; iter++) {
@@ -298,7 +423,12 @@ export default async function handler(req, res) {
           let resultado;
           try {
             const args = call.function?.arguments ? JSON.parse(call.function.arguments) : {};
-            resultado = await ejecutarHerramienta(call.function.name, args);
+            if (call.function.name === "graficar") {
+              charts.push(args);
+              resultado = { ok: true };
+            } else {
+              resultado = await ejecutarHerramienta(call.function.name, args);
+            }
           } catch (e) {
             resultado = { error: e.message || String(e) };
           }
@@ -311,7 +441,7 @@ export default async function handler(req, res) {
         continue;
       }
 
-      res.status(200).json({ reply: msg.content || "" });
+      res.status(200).json({ reply: msg.content || "", charts });
       return;
     }
 

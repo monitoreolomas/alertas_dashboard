@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef, Fragment } from "react";
 import * as XLSX from "xlsx";
 import { T } from "./theme.js";
 import { DIAS_ORDEN, TURNOS_ORDEN } from "./tarimaData.js";
+import ChatWidget from "./ChatWidget.jsx";
 
 const SEQ_DIV = [T.green, T.accent, T.amber, T.red, "#38bdf8", "#f472b6", "#a3e635"];
 const RANK_COLORS = [T.red, T.amber, T.accent, "#4c1d95"];
@@ -728,14 +729,6 @@ export default function Tarima({ onVolver }) {
 
   return (
     <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "'Inter',sans-serif" }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-        *{box-sizing:border-box;}
-        ::-webkit-scrollbar{width:5px;height:5px;}
-        ::-webkit-scrollbar-track{background:${T.bg};}
-        ::-webkit-scrollbar-thumb{background:rgba(139,92,246,0.3);border-radius:3px;}
-        @keyframes tarimaPulse{0%,100%{opacity:1;box-shadow:0 0 6px ${T.green};}50%{opacity:.5;box-shadow:0 0 12px ${T.green};}}
-      `}</style>
 
       <div style={{ background: `linear-gradient(90deg,${T.bg2} 0%,#1a1535 50%,${T.bg2} 100%)`, border: `1px solid ${T.border}`, borderRadius: 16, margin: "14px 20px 0", padding: "14px 24px", display: "flex", alignItems: "center", gap: 18, boxShadow: "0 4px 24px rgba(0,0,0,0.5)" }}>
         {onVolver && (
@@ -749,7 +742,7 @@ export default function Tarima({ onVolver }) {
           <div style={{ fontSize: 11, color: T.text2, marginTop: 2 }}>Análisis Operativo · Sistema de monitoreo del Partido de Lomas de Zamora</div>
         </div>
         <div style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)", borderRadius: 100, padding: "5px 12px", fontSize: 10, fontWeight: 700, color: "#6ee7b7", letterSpacing: "0.06em" }}>
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: T.green, display: "inline-block", animation: "tarimaPulse 2s infinite" }} />
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: T.green, display: "inline-block", animation: "livePulse 2s infinite" }} />
           EN VIVO
         </div>
       </div>
@@ -820,6 +813,8 @@ export default function Tarima({ onVolver }) {
           COL · Análisis Operativo &nbsp;·&nbsp; {sd || "–"} → {ed || "–"} &nbsp;·&nbsp; {fmt(kpis.nCur)} registros
         </div>
       </div>
+
+      <ChatWidget contexto="tarima"/>
     </div>
   );
 }

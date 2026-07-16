@@ -1764,13 +1764,6 @@ export default function App({ onVolver }) {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-        *{box-sizing:border-box;margin:0;padding:0;}
-        body{background:${T.bg};}
-        ::-webkit-scrollbar{width:5px;height:5px;}
-        ::-webkit-scrollbar-track{background:${T.bg};}
-        ::-webkit-scrollbar-thumb{background:rgba(139,92,246,0.3);border-radius:3px;}
-        ::-webkit-scrollbar-thumb:hover{background:rgba(139,92,246,0.5);}
         @media print {
           @page { size: A4 landscape; margin: 12mm 10mm; }
           body { background: #fff !important; color: #111 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -1815,7 +1808,7 @@ export default function App({ onVolver }) {
               <div style={{fontSize:10,color:T.muted,marginTop:2}}>{dateLabel}</div>
             </div>
             <div style={{display:"inline-flex",alignItems:"center",gap:6,background:"rgba(16,185,129,0.1)",border:"1px solid rgba(16,185,129,0.3)",borderRadius:100,padding:"5px 12px",fontSize:10,fontWeight:700,color:"#6ee7b7",letterSpacing:"0.06em"}}>
-              <span style={{width:6,height:6,borderRadius:"50%",background:T.green,display:"inline-block",boxShadow:`0 0 6px ${T.green}`}}/>
+              <span style={{width:6,height:6,borderRadius:"50%",background:T.green,display:"inline-block",animation:"livePulse 2s infinite"}}/>
               EN VIVO
             </div>
           </div>
@@ -1912,7 +1905,7 @@ export default function App({ onVolver }) {
           </div>
         </div>
 
-        <ChatWidget/>
+        <ChatWidget contexto="alertas"/>
       </div>
     </>
   );

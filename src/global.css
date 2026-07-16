@@ -1,0 +1,20 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+*{box-sizing:border-box;margin:0;padding:0;}
+
+body{background:#0a0a12;}
+
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:#0a0a12;}
+::-webkit-scrollbar-thumb{background:rgba(139,92,246,0.3);border-radius:3px;}
+::-webkit-scrollbar-thumb:hover{background:rgba(139,92,246,0.5);}
+
+@keyframes livePulse{
+  0%,100%{opacity:1;box-shadow:0 0 6px #10b981;}
+  50%{opacity:.55;box-shadow:0 0 12px #10b981;}
+}
+
+@keyframes chatSlideUp{
+  from{opacity:0;transform:translateY(12px);}
+  to{opacity:1;transform:translateY(0);}
+}
