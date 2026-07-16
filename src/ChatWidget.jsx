@@ -78,21 +78,52 @@ function ChatPrintExport({ data }) {
   );
 }
 
-function cargarHistorialInicial(contexto, cfg) {
+// Se resetea en cada carga real de página (el módulo se re-evalúa), pero
+// sobrevive a que el componente se desmonte/remonte por navegación interna
+// de la SPA (ej. pasar de Alertas a Tarima) dentro de la misma carga.
+const contextosInicializados = new Set();
+
+function iniciarEstadoChat(contexto, cfg) {
+  const saludo = [{ role: "assistant", content: cfg.saludo, charts: [] }];
+  const yaInicializado = contextosInicializados.has(contexto);
+  contextosInicializados.add(contexto);
+
+  let raw = null;
   try {
-    const raw = localStorage.getItem(`chat_historial_${contexto}`);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length) return parsed;
-    }
+    raw = sessionStorage.getItem(`chat_activo_${contexto}`);
   } catch {}
-  return [{ role: "assistant", content: cfg.saludo, charts: [] }];
+
+  if (yaInicializado) {
+    // Remount dentro de la misma carga de página: seguimos donde estábamos.
+    try {
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (Array.isArray(parsed) && parsed.length) return { messages: parsed, anterior: null };
+    } catch {}
+    return { messages: saludo, anterior: null };
+  }
+
+  // Primera vez que se monta este contexto desde que se cargó la página
+  // (incluye recargar/F5): archivamos lo que había como "anterior" y
+  // arrancamos en blanco.
+  let anterior = null;
+  try {
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (Array.isArray(parsed) && parsed.length > 1) anterior = parsed;
+  } catch {}
+  try {
+    sessionStorage.removeItem(`chat_activo_${contexto}`);
+  } catch {}
+
+  return { messages: saludo, anterior };
 }
 
 export default function ChatWidget({ contexto = "alertas" }) {
   const cfg = CONTEXTOS[contexto] || CONTEXTOS.alertas;
   const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState(() => cargarHistorialInicial(contexto, cfg));
+  const [estadoInicial] = useState(() => iniciarEstadoChat(contexto, cfg));
+  const [messages, setMessages] = useState(estadoInicial.messages);
+  const [historialAnterior, setHistorialAnterior] = useState(estadoInicial.anterior);
+  const [verAnterior, setVerAnterior] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [herramientaActual, setHerramientaActual] = useState(null);
@@ -103,11 +134,11 @@ export default function ChatWidget({ contexto = "alertas" }) {
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages, loading, open]);
+  }, [messages, loading, open, verAnterior]);
 
   useEffect(() => {
     try {
-      localStorage.setItem(`chat_historial_${contexto}`, JSON.stringify(messages));
+      sessionStorage.setItem(`chat_activo_${contexto}`, JSON.stringify(messages));
     } catch {}
   }, [messages, contexto]);
 
@@ -226,9 +257,18 @@ export default function ChatWidget({ contexto = "alertas" }) {
   function borrarHistorial() {
     const inicial = [{ role: "assistant", content: cfg.saludo, charts: [] }];
     setMessages(inicial);
+    setHistorialAnterior(null);
+    setVerAnterior(false);
     try {
-      localStorage.removeItem(`chat_historial_${contexto}`);
+      sessionStorage.removeItem(`chat_activo_${contexto}`);
     } catch {}
+  }
+
+  function restaurarAnterior() {
+    if (!historialAnterior) return;
+    setMessages(historialAnterior);
+    setHistorialAnterior(null);
+    setVerAnterior(false);
   }
 
   function onKeyDown(e) {
@@ -290,6 +330,15 @@ export default function ChatWidget({ contexto = "alertas" }) {
               </span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+              {historialAnterior && (
+                <button
+                  onClick={() => setVerAnterior((v) => !v)}
+                  title="Ver conversación anterior"
+                  style={{ background: verAnterior ? "rgba(139,92,246,0.2)" : "none", border: "none", color: verAnterior ? T.accent : T.muted, cursor: "pointer", fontSize: 13, lineHeight: 1, padding: 6, borderRadius: 6 }}
+                >
+                  🕓
+                </button>
+              )}
               <button
                 onClick={borrarHistorial}
                 title="Borrar historial"
@@ -315,6 +364,52 @@ export default function ChatWidget({ contexto = "alertas" }) {
           </div>
 
           <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "14px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+            {verAnterior ? (
+              <>
+                <div style={{ fontSize: 10.5, color: T.muted, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                  Conversación anterior (antes de recargar la página)
+                </div>
+                {historialAnterior.map((m, i) => (
+                  <div key={i} style={{ display: "flex", flexDirection: "column", gap: 4, alignSelf: m.role === "user" ? "flex-end" : "flex-start", maxWidth: "94%", opacity: 0.85 }}>
+                    <div
+                      style={{
+                        background: m.role === "user" ? T.accent : T.bg2,
+                        color: m.role === "user" ? "#fff" : T.text,
+                        borderRadius: 12,
+                        padding: "9px 12px",
+                        fontSize: 13,
+                        lineHeight: 1.55,
+                        whiteSpace: m.role === "user" ? "pre-wrap" : "normal",
+                      }}
+                    >
+                      {m.role === "user" ? m.content : <MarkdownLite text={m.content} />}
+                    </div>
+                    {m.charts && m.charts.length > 0 && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {m.charts.map((c, ci) => (
+                          <ChatChart key={ci} spec={c} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                  <button
+                    onClick={restaurarAnterior}
+                    style={{ background: T.accent, border: "none", color: "#fff", borderRadius: 8, padding: "7px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}
+                  >
+                    ↺ Restaurar esta conversación
+                  </button>
+                  <button
+                    onClick={() => setVerAnterior(false)}
+                    style={{ background: "none", border: `1px solid ${T.border}`, color: T.text2, borderRadius: 8, padding: "7px 12px", fontSize: 11, cursor: "pointer" }}
+                  >
+                    ← Volver
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
             {messages.map((m, i) => {
               const esUltimo = i === messages.length - 1;
               return (
@@ -398,6 +493,8 @@ export default function ChatWidget({ contexto = "alertas" }) {
               <div style={{ alignSelf: "flex-start", color: T.red, fontSize: 11.5, background: "rgba(230,103,103,0.1)", border: "1px solid rgba(230,103,103,0.3)", borderRadius: 8, padding: "6px 10px" }}>
                 {error}
               </div>
+            )}
+              </>
             )}
           </div>
 
