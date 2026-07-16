@@ -2,6 +2,7 @@ import { useState } from "react";
 import { T } from "./theme.js";
 import App from "./App.jsx";
 import Tarima from "./Tarima.jsx";
+import logoLomas from "./assets/logo-lomas.jpg";
 
 const REPORTES = [
   {
@@ -29,9 +30,11 @@ export default function Home() {
   return (
     <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "'Inter',sans-serif", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div style={{ textAlign: "center", marginBottom: 40 }}>
-        <div style={{ fontSize: 13, color: T.text2, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>
-          Municipalidad de Lomas de Zamora
-        </div>
+        <img
+          src={logoLomas}
+          alt="Municipio Lomas de Zamora"
+          style={{ width: 240, height: 240, borderRadius: "50%", objectFit: "cover", marginBottom: 24 }}
+        />
         <div style={{ fontSize: 26, fontWeight: 800, color: T.text }}>Elegí un reporte</div>
       </div>
 
