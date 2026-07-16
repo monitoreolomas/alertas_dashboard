@@ -415,6 +415,15 @@ export default async function handler(req, res) {
       });
 
       if (!respuesta.ok) {
+        if (respuesta.status === 429) {
+          const reset = respuesta.headers.get("x-ratelimit-reset");
+          const horaReset = reset
+            ? new Date(Number(reset)).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Argentina/Buenos_Aires" })
+            : null;
+          throw new Error(
+            `Se alcanzó el límite diario de consultas gratuitas del modelo de IA.${horaReset ? ` Se renueva hoy alrededor de las ${horaReset} (hora Argentina).` : " Probá de nuevo más tarde."} Si esto pasa seguido, se puede configurar un modelo pago en OpenRouter para evitar el límite.`
+          );
+        }
         const texto = await respuesta.text();
         throw new Error(`OpenRouter respondió ${respuesta.status}: ${texto.slice(0, 500)}`);
       }

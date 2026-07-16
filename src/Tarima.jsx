@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo, useRef, Fragment } from "react";
-import * as XLSX from "xlsx";
 import { T } from "./theme.js";
 import { DIAS_ORDEN, TURNOS_ORDEN } from "./tarimaData.js";
 import ChatWidget from "./ChatWidget.jsx";
@@ -726,27 +725,6 @@ function VistaCGM({ dfc }) {
   );
 }
 
-// ─── EXPORT EXCEL ─────────────────────────────────────────────────────────────
-function exportarExcel(rows, sd, ed) {
-  const data = rows.map((r) => ({
-    Fecha: r.fecha,
-    Hora: r.hora,
-    Turno: r.Turno,
-    Día: r.DiaNom,
-    TipoDía: r.TipoDia,
-    Franja: r.Franja,
-    Categoría: r.Categoría,
-    Subcategoria: r.Subcategoria,
-    Comisaría: r.Comisaría,
-    CGM: r.CGM,
-    ConCámara: r.con_camara ? "SI" : "NO",
-  }));
-  const ws = XLSX.utils.json_to_sheet(data);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Tarima");
-  XLSX.writeFile(wb, `tarima_${sd}_${ed}.xlsx`);
-}
-
 // ─── APP TARIMA ───────────────────────────────────────────────────────────────
 export default function Tarima({ onVolver }) {
   const [rows, setRows] = useState([]);
@@ -854,9 +832,21 @@ export default function Tarima({ onVolver }) {
   }
 
   return (
+    <>
+      <style>{`
+        @media print {
+          @page { size: A4 landscape; margin: 12mm 10mm; }
+          body { background: #fff !important; color: #111 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          .no-print { display: none !important; }
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          .print-header { display: block !important; }
+        }
+        .print-header { display: none; }
+      `}</style>
+
     <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "'Inter',sans-serif" }}>
 
-      <div style={{ background: T.bg2, border: `1px solid ${T.border}`, borderRadius: 12, margin: "14px 20px 0", padding: "14px 24px", display: "flex", alignItems: "center", gap: 18 }}>
+      <div className="no-print" style={{ background: T.bg2, border: `1px solid ${T.border}`, borderRadius: 12, margin: "14px 20px 0", padding: "14px 24px", display: "flex", alignItems: "center", gap: 18 }}>
         {onVolver && (
           <button onClick={onVolver} style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.text2, borderRadius: 10, padding: "8px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", flexShrink: 0 }}>
             ← Volver
@@ -876,7 +866,7 @@ export default function Tarima({ onVolver }) {
       <div style={{ maxWidth: 1440, margin: "0 auto", padding: "16px 20px" }}>
         {error && <div style={{ background: "rgba(230,103,103,0.1)", border: "1px solid rgba(230,103,103,0.3)", borderRadius: 10, padding: "10px 14px", color: T.red, fontSize: 12, marginBottom: 14 }}>⚠ {error}</div>}
 
-        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, marginBottom: 16, overflow: "hidden" }}>
+        <div className="no-print" style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, marginBottom: 16, overflow: "hidden" }}>
           <button onClick={() => setFiltersOpen((o) => !o)} style={{ width: "100%", background: "transparent", border: "none", padding: "12px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", color: T.text2 }}>
             <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: 8 }}><span>⚙</span> FILTROS</span>
             <span style={{ fontSize: 12, color: T.muted, transition: "transform 0.2s", display: "inline-block", transform: filtersOpen ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
@@ -917,7 +907,7 @@ export default function Tarima({ onVolver }) {
           </div>
         )}
 
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 18, flexWrap: "wrap" }}>
+        <div className="no-print" style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 18, flexWrap: "wrap" }}>
           {[["ejecutiva", "📊 Ejecutivo"], ["territorial", "🗺️ Territorial"], ["cgm", "📡 Por CGM"]].map(([id, label]) => (
             <button
               key={id}
@@ -926,14 +916,30 @@ export default function Tarima({ onVolver }) {
             >{label}</button>
           ))}
           <button
-            onClick={() => exportarExcel(dfc, sd, ed)}
+            onClick={() => window.print()}
             style={{ marginLeft: "auto", background: T.accent, border: "none", color: "#fff", borderRadius: 10, padding: "8px 16px", fontSize: 11, fontWeight: 700, cursor: "pointer", letterSpacing: "0.05em" }}
-          >⬇ Exportar</button>
+          >⬇ Exportar PDF</button>
         </div>
 
         {vista === "ejecutiva" && <VistaEjecutiva dfc={dfc} dfp={dfp} sd={sd} ed={ed} kpis={kpis} pieMode={pieMode} setPieMode={setPieMode} />}
         {vista === "territorial" && <VistaTerritorial dfc={dfc} />}
         {vista === "cgm" && <VistaCGM dfc={dfc} />}
+
+        {/* ENCABEZADO PRINT */}
+        <div className="print-header" style={{ marginBottom: 16, paddingBottom: 10, borderBottom: "2px solid #8b5cf6" }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: "#111" }}>Centro de Operaciones Lomas · Tarima</div>
+          <div style={{ fontSize: 11, color: "#555", marginTop: 4 }}>
+            Análisis Operativo de Novedades &nbsp;·&nbsp;
+            Período: {sd || "–"} → {ed || "–"} &nbsp;·&nbsp;
+            {filters.cgm.length ? `CGM: ${filters.cgm.join(", ")} · ` : ""}
+            {filters.categoria.length ? `Categoría: ${filters.categoria.join(", ")} · ` : ""}
+            {filters.subcategoria.length ? `Subcategoría: ${filters.subcategoria.join(", ")} · ` : ""}
+            {filters.comisaria.length ? `Comisaría: ${filters.comisaria.join(", ")} · ` : ""}
+            {filters.turno.length ? `Turno: ${filters.turno.join(", ")} · ` : ""}
+            {fmt(kpis.nCur)} registros &nbsp;·&nbsp;
+            Generado: {new Date().toLocaleString("es-AR")}
+          </div>
+        </div>
 
         <div style={{ textAlign: "center", color: T.muted, fontSize: 10, marginTop: 24, padding: "8px 0", borderTop: "1px solid rgba(139,92,246,0.08)" }}>
           COL · Análisis Operativo &nbsp;·&nbsp; {sd || "–"} → {ed || "–"} &nbsp;·&nbsp; {fmt(kpis.nCur)} registros
@@ -942,5 +948,6 @@ export default function Tarima({ onVolver }) {
 
       <ChatWidget contexto="tarima"/>
     </div>
+    </>
   );
 }
