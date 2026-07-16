@@ -254,6 +254,12 @@ export default function ChatWidget({ contexto = "alertas" }) {
       .catch(() => {});
   }
 
+  function nuevoChat() {
+    if (messages.length > 1) setHistorialAnterior(messages);
+    setMessages([{ role: "assistant", content: cfg.saludo, charts: [] }]);
+    setVerAnterior(false);
+  }
+
   function borrarHistorial() {
     const inicial = [{ role: "assistant", content: cfg.saludo, charts: [] }];
     setMessages(inicial);
@@ -330,6 +336,14 @@ export default function ChatWidget({ contexto = "alertas" }) {
               </span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+              <button
+                onClick={nuevoChat}
+                disabled={loading}
+                title="Nueva conversación"
+                style={{ background: "none", border: "none", color: loading ? "rgba(154,154,163,0.4)" : T.muted, cursor: loading ? "default" : "pointer", fontSize: 16, fontWeight: 700, lineHeight: 1, padding: "4px 8px" }}
+              >
+                +
+              </button>
               {historialAnterior && (
                 <button
                   onClick={() => setVerAnterior((v) => !v)}
