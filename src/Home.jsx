@@ -28,12 +28,6 @@ export default function Home() {
 
   return (
     <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "'Inter',sans-serif", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-        *{box-sizing:border-box;}
-        body{background:${T.bg};}
-      `}</style>
-
       <div style={{ textAlign: "center", marginBottom: 40 }}>
         <div style={{ fontSize: 13, color: T.text2, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>
           Municipalidad de Lomas de Zamora

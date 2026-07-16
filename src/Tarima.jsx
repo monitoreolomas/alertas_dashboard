@@ -1,12 +1,46 @@
 import { useState, useEffect, useMemo, useRef, Fragment } from "react";
-import * as XLSX from "xlsx";
 import { T } from "./theme.js";
 import { DIAS_ORDEN, TURNOS_ORDEN } from "./tarimaData.js";
+import ChatWidget from "./ChatWidget.jsx";
 
-const SEQ_DIV = [T.green, T.accent, T.amber, T.red, "#38bdf8", "#f472b6", "#a3e635"];
-const RANK_COLORS = [T.red, T.amber, T.accent, "#4c1d95"];
+// Paleta categórica validada (CVD-safe sobre superficie oscura, ver skill dataviz):
+// lightness OKLCH 0.48–0.67, chroma >= 0.10, peor ΔE adyacente 10.3 (banda piso,
+// por eso cada gráfico que la usa también lleva porcentaje/valor como refuerzo).
+const CAT_HUES = ["#3987e5", "#199e70", "#c98500", "#008300", "#9085e9", "#e66767", "#d55181", "#d95926"];
 
-const RIESGO_LABEL_COLOR = (r) => (r >= 4 ? T.red : r === 3 ? T.amber : T.accent);
+// Color fijo por nombre de categoría (nunca por posición/ranking), para que una
+// categoría no cambie de color según el filtro o el orden de los datos.
+const CATEGORIA_COLOR = {
+  Robo: CAT_HUES[0],
+  "Accidente de tránsito": CAT_HUES[1],
+  Conflicto: CAT_HUES[2],
+  Hurto: CAT_HUES[3],
+  Violencia: CAT_HUES[4],
+  Incendios: CAT_HUES[5],
+  Obito: CAT_HUES[6],
+  Persecución: CAT_HUES[7],
+  Heridos: "#8a8f98",
+};
+function colorCategoria(nombre) {
+  return CATEGORIA_COLOR[nombre] || T.muted;
+}
+
+const TURNO_COLOR = { Mañana: CAT_HUES[1], Tarde: CAT_HUES[2], Noche: CAT_HUES[4] };
+const TIPODIA_COLOR = { Semana: CAT_HUES[0], "Fin de semana": CAT_HUES[5] };
+
+// Ordinal de un solo tono (posición en el ranking), no identidad — por eso
+// se implementa como pasos de opacidad del acento de marca, no como colores.
+function colorRanking(i) {
+  if (i === 0) return T.accent;
+  if (i === 1) return "rgba(139,92,246,0.75)";
+  if (i === 2) return "rgba(139,92,246,0.55)";
+  return "rgba(139,92,246,0.3)";
+}
+
+// Paleta de estado reservada (severidad de riesgo 1–5), validada para
+// contraste sobre superficie oscura.
+const STATUS = { good: "#0ca30c", warning: "#fab219", critical: "#d03b3b" };
+const RIESGO_LABEL_COLOR = (r) => (r >= 4 ? STATUS.critical : r === 3 ? STATUS.warning : STATUS.good);
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 function fmt(n) {
@@ -72,7 +106,7 @@ function topOrdenado(counts, n = 9999) {
 }
 
 // ─── SUB-COMPONENTES DE UI ────────────────────────────────────────────────────
-function Kpi({ icon, label, value, delta, sub, invert }) {
+function Kpi({ icon, label, value, delta, sub, invert, accentColor = T.accent }) {
   let deltaEl = null;
   if (delta != null) {
     let color, arrow;
@@ -93,11 +127,11 @@ function Kpi({ icon, label, value, delta, sub, invert }) {
     );
   }
   return (
-    <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 16, padding: "16px 18px", position: "relative", overflow: "hidden" }}>
-      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg,${T.accent},${T.accent2})` }} />
-      <div style={{ fontSize: 20, marginBottom: 4, lineHeight: 1 }}>{icon}</div>
-      <div style={{ fontSize: 11, color: T.text2, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase" }}>{label}</div>
-      <div style={{ fontSize: 25, fontWeight: 800, color: T.text, margin: "3px 0", lineHeight: 1.15 }}>{value}</div>
+    <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: "18px 20px" }}>
+      <div style={{ fontSize: 11, color: T.text2, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+        <span style={{ fontSize: 13, opacity: 0.85 }}>{icon}</span>{label}
+      </div>
+      <div style={{ fontSize: 26, fontWeight: 600, color: T.text, margin: "0 0 6px", lineHeight: 1.1, letterSpacing: "-0.01em" }}>{value}</div>
       {deltaEl}
       {sub && <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>{sub}</div>}
     </div>
@@ -106,9 +140,9 @@ function Kpi({ icon, label, value, delta, sub, invert }) {
 
 function Card({ title, icon, children, style = {} }) {
   return (
-    <div style={{ background: T.card, border: "1px solid rgba(139,92,246,0.14)", borderRadius: 16, padding: "16px 18px", boxShadow: "0 4px 20px rgba(0,0,0,0.3)", ...style }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: T.text, letterSpacing: "0.05em", textTransform: "uppercase", borderBottom: "1px solid rgba(139,92,246,0.15)", paddingBottom: 8, marginBottom: 12, display: "flex", alignItems: "center", gap: 7 }}>
-        {icon && <span>{icon}</span>}
+    <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: "18px 20px", ...style }}>
+      <div style={{ fontSize: 11, fontWeight: 600, color: T.text2, letterSpacing: "0.04em", textTransform: "uppercase", borderBottom: `1px solid ${T.border}`, paddingBottom: 10, marginBottom: 14, display: "flex", alignItems: "center", gap: 7 }}>
+        {icon && <span style={{ fontSize: 13, opacity: 0.85 }}>{icon}</span>}
         {title}
       </div>
       {children}
@@ -135,7 +169,7 @@ function MultiSelect({ label, options, value, onChange, placeholder = "Todos" })
       <label style={{ fontSize: 11, color: T.text2, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 5, display: "block" }}>{label}</label>
       <button
         onClick={() => setOpen((o) => !o)}
-        style={{ width: "100%", textAlign: "left", background: "#0d0d1f", border: `1px solid ${T.border}`, color: T.text, borderRadius: 10, padding: "7px 10px", fontSize: 12, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: "'Inter',sans-serif" }}
+        style={{ width: "100%", textAlign: "left", background: T.bg2, border: `1px solid ${T.border}`, color: T.text, borderRadius: 10, padding: "7px 10px", fontSize: 12, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: "'Inter',sans-serif" }}
       >
         <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{labelTxt}</span>
         <span style={{ color: T.muted, fontSize: 10 }}>▼</span>
@@ -155,7 +189,25 @@ function MultiSelect({ label, options, value, onChange, placeholder = "Todos" })
   );
 }
 
+function ChartTooltip({ tooltip }) {
+  if (!tooltip) return null;
+  return (
+    <div
+      style={{
+        position: "fixed", left: tooltip.x + 14, top: tooltip.y + 14,
+        background: T.bg2, border: `1px solid ${T.border}`, borderRadius: 8,
+        padding: "6px 10px", fontSize: 11, color: T.text, pointerEvents: "none",
+        zIndex: 9999, whiteSpace: "nowrap", boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+      }}
+    >
+      {tooltip.value != null && <div style={{ fontWeight: 700 }}>{tooltip.value}</div>}
+      {tooltip.label && <div style={{ color: T.text2, fontSize: 10 }}>{tooltip.label}</div>}
+    </div>
+  );
+}
+
 function BarRanking({ items, colorFn, total, showPct = true }) {
+  const [tooltip, setTooltip] = useState(null);
   const max = Math.max(...items.map((i) => i.value), 1);
   if (!items.length) return <div style={{ color: T.muted, fontSize: 11 }}>Sin datos</div>;
   return (
@@ -171,22 +223,28 @@ function BarRanking({ items, colorFn, total, showPct = true }) {
                 {showPct && pct != null ? ` (${pct}%)` : ""}
               </span>
             </div>
-            <div style={{ height: 6, background: "rgba(255,255,255,0.05)", borderRadius: 3, overflow: "hidden" }}>
-              <div style={{ height: "100%", width: `${(it.value / max) * 100}%`, background: colorFn(it, i), borderRadius: 3, transition: "width 0.4s ease" }} />
+            <div style={{ height: 7, background: "rgba(255,255,255,0.05)", borderRadius: 3, overflow: "hidden" }}>
+              <div
+                onMouseMove={(e) => setTooltip({ x: e.clientX, y: e.clientY, value: fmt(it.value), label: it.label })}
+                onMouseLeave={() => setTooltip(null)}
+                style={{ height: "100%", width: `${(it.value / max) * 100}%`, background: colorFn(it, i), borderRadius: "0 4px 4px 0", transition: "width 0.4s ease", cursor: "pointer" }}
+              />
             </div>
           </div>
         );
       })}
+      <ChartTooltip tooltip={tooltip} />
     </div>
   );
 }
 
 function HeatGrid({ matrix, rowLabels, colLabels }) {
+  const [tooltip, setTooltip] = useState(null);
   if (!rowLabels.length || !colLabels.length) return <div style={{ color: T.muted, fontSize: 11 }}>Sin datos</div>;
   const max = Math.max(...matrix.flat(), 1);
   return (
     <div style={{ overflowX: "auto" }}>
-      <div style={{ display: "grid", gridTemplateColumns: `72px repeat(${colLabels.length},1fr)`, gap: 2, minWidth: 260 }}>
+      <div style={{ display: "grid", gridTemplateColumns: `72px repeat(${colLabels.length}, minmax(34px,1fr))`, gap: 3, minWidth: 260 }}>
         <div />
         {colLabels.map((l) => (
           <div key={l} style={{ fontSize: 9, color: T.muted, textAlign: "center", paddingBottom: 4 }}>{l}</div>
@@ -197,9 +255,14 @@ function HeatGrid({ matrix, rowLabels, colLabels }) {
             {colLabels.map((_, ci) => {
               const v = matrix[ri][ci];
               const t = v / max;
-              const bg = t < 0.02 ? "rgba(255,255,255,0.03)" : `rgba(139,92,246,${0.1 + t * 0.8})`;
+              const bg = t < 0.02 ? "rgba(255,255,255,0.04)" : `rgba(139,92,246,${0.12 + t * 0.78})`;
               return (
-                <div key={ci} style={{ background: bg, borderRadius: 3, aspectRatio: "1.5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: t > 0.5 ? "#fff" : T.muted }}>
+                <div
+                  key={ci}
+                  onMouseMove={(e) => setTooltip({ x: e.clientX, y: e.clientY, value: fmt(v), label: `${row} · ${colLabels[ci]}` })}
+                  onMouseLeave={() => setTooltip(null)}
+                  style={{ background: bg, borderRadius: 3, height: 24, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: t > 0.5 ? "#fff" : T.muted, transition: "background 0.3s ease", cursor: "pointer" }}
+                >
                   {v > 0 ? v : ""}
                 </div>
               );
@@ -207,11 +270,13 @@ function HeatGrid({ matrix, rowLabels, colLabels }) {
           </Fragment>
         ))}
       </div>
+      <ChartTooltip tooltip={tooltip} />
     </div>
   );
 }
 
-function Donut({ data }) {
+function Donut({ data, colorFor }) {
+  const [tooltip, setTooltip] = useState(null);
   const totalReal = data.reduce((a, b) => a + b.value, 0);
   const total = totalReal || 1;
   const r = 62, cx = 90, cy = 90, strokeW = 24;
@@ -219,9 +284,9 @@ function Donut({ data }) {
   let acc = 0;
   const segs = data.map((d, i) => {
     const frac = d.value / total;
-    const dash = frac * circ;
-    const seg = { color: SEQ_DIV[i % SEQ_DIV.length], dash, gap: circ - dash, offset: -acc, pct: frac * 100 };
-    acc += dash;
+    const dash = Math.max(0, frac * circ - 2);
+    const seg = { color: colorFor ? colorFor(d.label, i) : CAT_HUES[i % CAT_HUES.length], dash, gap: circ - dash, offset: -acc, pct: frac * 100 };
+    acc += frac * circ;
     return { ...d, ...seg };
   });
   return (
@@ -229,7 +294,14 @@ function Donut({ data }) {
       <svg width={180} height={180} viewBox="0 0 180 180">
         <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth={strokeW} />
         {segs.map((s, i) => (
-          <circle key={i} cx={cx} cy={cy} r={r} fill="none" stroke={s.color} strokeWidth={strokeW} strokeDasharray={`${s.dash} ${s.gap}`} strokeDashoffset={s.offset} transform={`rotate(-90 ${cx} ${cy})`} />
+          <circle
+            key={i} cx={cx} cy={cy} r={r} fill="none" stroke={s.color} strokeWidth={strokeW}
+            strokeDasharray={`${s.dash} ${s.gap}`} strokeDashoffset={s.offset} strokeLinecap="butt"
+            transform={`rotate(-90 ${cx} ${cy})`}
+            onMouseMove={(e) => setTooltip({ x: e.clientX, y: e.clientY, value: `${fmt(s.value)} (${s.pct.toFixed(0)}%)`, label: s.label })}
+            onMouseLeave={() => setTooltip(null)}
+            style={{ cursor: "pointer" }}
+          />
         ))}
         <text x={cx} y={cy - 3} textAnchor="middle" fontSize="18" fontWeight="800" fill={T.text}>{fmt(totalReal)}</text>
         <text x={cx} y={cy + 15} textAnchor="middle" fontSize="9" fill={T.muted}>Total</text>
@@ -242,43 +314,69 @@ function Donut({ data }) {
           </div>
         ))}
       </div>
+      <ChartTooltip tooltip={tooltip} />
     </div>
   );
 }
 
-function StackedBars({ groups, seriesKeys, height = 250 }) {
+function StackedBars({ groups, seriesKeys, colorFor, height = 210 }) {
+  const [tooltip, setTooltip] = useState(null);
   if (!groups.length) return <div style={{ color: T.muted, fontSize: 11 }}>Sin datos</div>;
   const max = Math.max(...groups.map((g) => g.total), 1);
+  const colorOf = (k, ki) => (colorFor ? colorFor(k, ki) : CAT_HUES[ki % CAT_HUES.length]);
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 10, height, overflowX: "auto", paddingBottom: 4 }}>
-        {groups.map((g) => (
-          <div key={g.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 30, flexShrink: 0 }}>
-            <div style={{ display: "flex", flexDirection: "column-reverse", width: 24, height: height - 46, borderRadius: "4px 4px 0 0", overflow: "hidden", background: "rgba(255,255,255,0.03)" }}>
-              {seriesKeys.map((k, ki) => {
-                const v = g.values[k] || 0;
-                if (!v) return null;
-                const h = (v / max) * (height - 46);
-                return <div key={k} style={{ height: `${h}px`, background: SEQ_DIV[ki % SEQ_DIV.length] }} title={`${k}: ${v}`} />;
-              })}
+      <div style={{ overflowX: "auto", paddingBottom: 4 }}>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 14, height: height + 28, width: "fit-content", minWidth: "100%" }}>
+        {groups.map((g) => {
+          const presentes = seriesKeys.filter((k) => g.values[k]);
+          // El stack se calcula sobre un presupuesto que ya descuenta los gaps entre
+          // segmentos, para que la suma de alturas + gaps nunca supere `height`
+          // (si no, el bar mas alto se sale del contenedor y el navegador lo clipea
+          // por la regla CSS que fuerza overflow-y:auto cuando overflow-x no es visible).
+          const gapTotal = Math.max(0, presentes.length - 1) * 2;
+          const barBudget = Math.max(0, height - gapTotal);
+          const barTotalPx = g.total > 0 ? (g.total / max) * barBudget : 0;
+          return (
+            <div key={g.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 28, flexShrink: 0 }}>
+              <div style={{ fontSize: 9, color: T.text2, marginBottom: 3, fontWeight: 700 }}>{fmt(g.total)}</div>
+              <div style={{ display: "flex", flexDirection: "column-reverse", width: 20, gap: 2 }}>
+                {presentes.map((k, pi) => {
+                  const ki = seriesKeys.indexOf(k);
+                  const v = g.values[k] || 0;
+                  const h = g.total > 0 ? (v / g.total) * barTotalPx : 0;
+                  const esUltimo = pi === presentes.length - 1;
+                  return (
+                    <div
+                      key={k}
+                      onMouseMove={(e) => setTooltip({ x: e.clientX, y: e.clientY, value: fmt(v), label: `${g.label} · ${k}` })}
+                      onMouseLeave={() => setTooltip(null)}
+                      style={{ height: `${Math.max(0.5, h)}px`, background: colorOf(k, ki), borderRadius: esUltimo ? "3px 3px 0 0" : 0, cursor: "pointer" }}
+                    />
+                  );
+                })}
+              </div>
+              <div style={{ fontSize: 9, color: T.muted, marginTop: 6, writingMode: "vertical-rl", transform: "rotate(180deg)", maxHeight: 90, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{g.label}</div>
             </div>
-            <div style={{ fontSize: 9, color: T.muted, marginTop: 6, writingMode: "vertical-rl", transform: "rotate(180deg)", maxHeight: 90, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{g.label}</div>
-          </div>
-        ))}
+          );
+        })}
+      </div>
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 10 }}>
         {seriesKeys.map((k, ki) => (
           <div key={k} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: T.text2 }}>
-            <div style={{ width: 8, height: 8, borderRadius: 2, background: SEQ_DIV[ki % SEQ_DIV.length] }} />
+            <div style={{ width: 8, height: 8, borderRadius: 2, background: colorOf(k, ki) }} />
             {k}
           </div>
         ))}
       </div>
+      <ChartTooltip tooltip={tooltip} />
     </div>
   );
 }
 
 function EvolChart({ labels, current, previous, movingAvg }) {
+  const [hoverIdx, setHoverIdx] = useState(null);
   if (current.length < 2) return <div style={{ color: T.muted, fontSize: 11 }}>Sin datos suficientes</div>;
   const W = 800, H = 230, PAD = 10, BOTTOM = 26;
   const max = Math.max(...current, ...(previous || [0]), ...(movingAvg || [0]), 1);
@@ -290,6 +388,14 @@ function EvolChart({ labels, current, previous, movingAvg }) {
   const prevPts = previous ? previous.map((v, i) => `${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`).join(" ") : null;
   const maPts = movingAvg ? movingAvg.map((v, i) => `${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`).join(" ") : null;
   const step = Math.max(1, Math.floor(n / 7));
+
+  function onMove(e) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const relX = ((e.clientX - rect.left) / rect.width) * W;
+    const idx = Math.round(((relX - PAD) / (W - PAD * 2)) * (n - 1));
+    setHoverIdx(Math.max(0, Math.min(n - 1, idx)));
+  }
+
   return (
     <div>
       <div style={{ display: "flex", gap: 16, marginBottom: 6, fontSize: 10, color: T.text2 }}>
@@ -297,7 +403,12 @@ function EvolChart({ labels, current, previous, movingAvg }) {
         {previous && <span><span style={{ display: "inline-block", width: 14, height: 2, background: "rgba(148,163,184,0.6)", marginRight: 5, verticalAlign: "middle" }} />Anterior</span>}
         {movingAvg && <span><span style={{ display: "inline-block", width: 14, height: 2, background: T.amber, marginRight: 5, verticalAlign: "middle" }} />Media 7d</span>}
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: 230 }}>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        style={{ width: "100%", height: 230, cursor: "crosshair" }}
+        onMouseMove={onMove}
+        onMouseLeave={() => setHoverIdx(null)}
+      >
         <defs>
           <linearGradient id="tarimaEvolGrad" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={T.accent} stopOpacity="0.18" />
@@ -310,7 +421,22 @@ function EvolChart({ labels, current, previous, movingAvg }) {
         <polyline points={curPts} fill="none" stroke={T.accent} strokeWidth="2.4" strokeLinejoin="round" />
         {current.map((v, i) => (i % step === 0 ? <circle key={i} cx={xAt(i)} cy={yAt(v)} r="2.5" fill={T.accent} /> : null))}
         {labels.map((l, i) => (i % step === 0 ? <text key={i} x={xAt(i)} y={H - 8} textAnchor="middle" fontSize="8" fill={T.muted}>{l}</text> : null))}
+        {hoverIdx != null && (
+          <>
+            <line x1={xAt(hoverIdx)} x2={xAt(hoverIdx)} y1={PAD} y2={H - BOTTOM} stroke="rgba(255,255,255,0.18)" strokeWidth="1" />
+            <circle cx={xAt(hoverIdx)} cy={yAt(current[hoverIdx])} r="4" fill={T.accent} stroke={T.card} strokeWidth="2" />
+            {previous && <circle cx={xAt(hoverIdx)} cy={yAt(previous[hoverIdx] ?? 0)} r="3.5" fill="#94a3b8" stroke={T.card} strokeWidth="2" />}
+          </>
+        )}
       </svg>
+      {hoverIdx != null && (
+        <div style={{ display: "flex", gap: 14, fontSize: 10.5, color: T.text2, marginTop: 4, paddingLeft: 4, flexWrap: "wrap" }}>
+          <span style={{ color: T.text, fontWeight: 700 }}>{labels[hoverIdx]}</span>
+          <span><span style={{ color: T.accent, fontWeight: 700 }}>{fmt(current[hoverIdx])}</span> actual</span>
+          {previous && <span><span style={{ color: "#94a3b8", fontWeight: 700 }}>{fmt(previous[hoverIdx] ?? 0)}</span> anterior</span>}
+          {movingAvg && <span><span style={{ color: T.amber, fontWeight: 700 }}>{fmt(Math.round(movingAvg[hoverIdx]))}</span> media 7d</span>}
+        </div>
+      )}
     </div>
   );
 }
@@ -319,7 +445,7 @@ function RiskLegend() {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
       <span style={{ fontSize: 9, color: T.muted }}>1</span>
-      <div style={{ flex: 1, height: 6, borderRadius: 3, background: `linear-gradient(90deg,${T.green},${T.amber},${T.red})` }} />
+      <div style={{ flex: 1, height: 6, borderRadius: 3, background: `linear-gradient(90deg,${STATUS.good},${STATUS.warning},${STATUS.critical})` }} />
       <span style={{ fontSize: 9, color: T.muted }}>5</span>
     </div>
   );
@@ -383,11 +509,11 @@ function VistaEjecutiva({ dfc, dfp, sd, ed, kpis, pieMode, setPieMode }) {
     <div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(180px,1fr))", gap: 12, marginBottom: 14 }}>
         <Kpi icon="📋" label="Total Novedades" value={fmt(nCur)} delta={dPct} invert />
-        <Kpi icon="📷" label="Con Cámara" value={`${camPct.toFixed(1)}%`} delta={dCam} sub={`${fmt(camCount)} eventos`} />
-        <Kpi icon="⚠️" label="Índice de Riesgo" value={riesgoMed.toFixed(2)} delta={dRiesgo} invert sub="Escala 1–5" />
-        <Kpi icon="🏘️" label="CGM más activo" value={cgmTop} sub={nCur ? `${fmt(cgmCount)} casos` : ""} />
-        <Kpi icon="🕐" label="Hora Pico" value={`${String(horaPico).padStart(2, "0")}:00`} sub={`Franja ${String(franjaIni).padStart(2, "0")}–${String(franjaIni + 3).padStart(2, "0")}hs`} />
-        <Kpi icon="🔺" label="Cat. Líder" value={catTop} sub={`${fmt(catTopN)} casos`} />
+        <Kpi icon="📷" label="Con Cámara" value={`${camPct.toFixed(1)}%`} delta={dCam} sub={`${fmt(camCount)} eventos`} accentColor={T.green} />
+        <Kpi icon="⚠️" label="Índice de Riesgo" value={riesgoMed.toFixed(2)} delta={dRiesgo} invert sub="Escala 1–5" accentColor={STATUS.warning} />
+        <Kpi icon="🏘️" label="CGM más activo" value={cgmTop} sub={nCur ? `${fmt(cgmCount)} casos` : ""} accentColor="#38bdf8" />
+        <Kpi icon="🕐" label="Hora Pico" value={`${String(horaPico).padStart(2, "0")}:00`} sub={`Franja ${String(franjaIni).padStart(2, "0")}–${String(franjaIni + 3).padStart(2, "0")}hs`} accentColor={T.amber} />
+        <Kpi icon="🔺" label="Cat. Líder" value={catTop} sub={`${fmt(catTopN)} casos`} accentColor="#f472b6" />
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "3fr 2fr", gap: 14, marginBottom: 14 }}>
@@ -403,7 +529,7 @@ function VistaEjecutiva({ dfc, dfp, sd, ed, kpis, pieMode, setPieMode }) {
         <Card title="Novedades por Categoría · color = nivel de riesgo" icon="📂">
           <BarRanking items={catItems} total={nCur} colorFn={(it) => RIESGO_LABEL_COLOR(it.riesgo)} />
           <div style={{ display: "flex", gap: 14, marginTop: 10 }}>
-            {[[T.red, "Alto"], [T.amber, "Medio"], [T.accent, "Bajo"]].map(([c, l]) => (
+            {[[STATUS.critical, "Alto"], [STATUS.warning, "Medio"], [STATUS.good, "Bajo"]].map(([c, l]) => (
               <div key={l} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: T.text2 }}>
                 <div style={{ width: 8, height: 8, borderRadius: 2, background: c }} />{l}
               </div>
@@ -415,10 +541,10 @@ function VistaEjecutiva({ dfc, dfp, sd, ed, kpis, pieMode, setPieMode }) {
             <button onClick={() => setPieMode("turno")} style={{ flex: 1, background: pieMode === "turno" ? "rgba(139,92,246,0.15)" : "transparent", border: `1px solid ${pieMode === "turno" ? T.accent : T.border}`, color: pieMode === "turno" ? T.text : T.text2, borderRadius: 8, padding: "6px 0", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Turno</button>
             <button onClick={() => setPieMode("dia")} style={{ flex: 1, background: pieMode === "dia" ? "rgba(139,92,246,0.15)" : "transparent", border: `1px solid ${pieMode === "dia" ? T.accent : T.border}`, color: pieMode === "dia" ? T.text : T.text2, borderRadius: 8, padding: "6px 0", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Día</button>
           </div>
-          <Donut data={donutData} />
+          <Donut data={donutData} colorFor={(label) => (pieMode === "turno" ? TURNO_COLOR[label] : TIPODIA_COLOR[label]) || T.muted} />
         </Card>
         <Card title="Ranking Comisarías" icon="🏆">
-          <BarRanking items={comisariasTop} total={nCur} showPct={false} colorFn={(it, i) => RANK_COLORS[Math.min(i, 3)]} />
+          <BarRanking items={comisariasTop} total={nCur} showPct={false} colorFn={(it, i) => colorRanking(i)} />
         </Card>
       </div>
     </div>
@@ -476,14 +602,14 @@ function VistaTerritorial({ dfc }) {
     <div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(180px,1fr))", gap: 12, marginBottom: 14 }}>
         <Kpi icon="🏢" label="Comisarías activas" value={fmt(nComs)} />
-        <Kpi icon="📍" label="Comisaría líder" value={comTop.label} sub={nCur ? `${fmt(comTop.value)} casos` : ""} />
-        <Kpi icon="📊" label="Promedio / Comisaría" value={fmt(promCom)} sub="novedades" />
-        <Kpi icon="📷" label="Cat. más filmada" value={catCamTop.label} sub={`${fmt(catCamTop.value)} con cámara`} />
+        <Kpi icon="📍" label="Comisaría líder" value={comTop.label} sub={nCur ? `${fmt(comTop.value)} casos` : ""} accentColor={T.green} />
+        <Kpi icon="📊" label="Promedio / Comisaría" value={fmt(promCom)} sub="novedades" accentColor="#38bdf8" />
+        <Kpi icon="📷" label="Cat. más filmada" value={catCamTop.label} sub={`${fmt(catCamTop.value)} con cámara`} accentColor={T.amber} />
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "3fr 2fr", gap: 14, marginBottom: 14 }}>
         <Card title="Comisaría × Categoría (Top 5 categorías)" icon="🗂️">
-          <StackedBars groups={stackedComisaria} seriesKeys={top5Cats} />
+          <StackedBars groups={stackedComisaria} seriesKeys={top5Cats} colorFor={colorCategoria} />
         </Card>
         <Card title="% Cobertura de Cámara por Comisaría" icon="🎥">
           <BarRanking items={camPorComisaria} showPct={false} colorFn={(it) => colorScale(["#1e1b4b", T.accent, T.green], it.value / 100)} />
@@ -563,9 +689,9 @@ function VistaCGM({ dfc }) {
     <div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(180px,1fr))", gap: 12, marginBottom: 14 }}>
         <Kpi icon="🏘️" label="CGMs activos" value={fmt(nCgms)} />
-        <Kpi icon="🔝" label="CGM líder" value={cgmLider.label} sub={`${fmt(cgmLider.value)} novedades`} />
-        <Kpi icon="📊" label="Promedio / CGM" value={fmt(promCgm)} sub="novedades" />
-        <Kpi icon="⚠️" label="CGM mayor riesgo" value={cgmRiesgoTop.label} sub={`Índice ${cgmRiesgoTop.value.toFixed(2)}`} />
+        <Kpi icon="🔝" label="CGM líder" value={cgmLider.label} sub={`${fmt(cgmLider.value)} novedades`} accentColor={T.green} />
+        <Kpi icon="📊" label="Promedio / CGM" value={fmt(promCgm)} sub="novedades" accentColor="#38bdf8" />
+        <Kpi icon="⚠️" label="CGM mayor riesgo" value={cgmRiesgoTop.label} sub={`Índice ${cgmRiesgoTop.value.toFixed(2)}`} accentColor={STATUS.critical} />
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "3fr 2fr", gap: 14, marginBottom: 14 }}>
@@ -579,10 +705,10 @@ function VistaCGM({ dfc }) {
 
       <div style={{ display: "grid", gridTemplateColumns: "3fr 2fr", gap: 14, marginBottom: 14 }}>
         <Card title="Distribución de Categorías por CGM" icon="📂">
-          <StackedBars groups={stackedCgm} seriesKeys={top5Cats} />
+          <StackedBars groups={stackedCgm} seriesKeys={top5Cats} colorFor={colorCategoria} />
         </Card>
         <Card title="Índice de Riesgo Promedio por CGM" icon="⚠️">
-          <BarRanking items={riesgoPorCgm} showPct={false} colorFn={(it) => colorScale([T.green, T.amber, T.red], (it.value - 1) / 4)} />
+          <BarRanking items={riesgoPorCgm} showPct={false} colorFn={(it) => colorScale([STATUS.good, STATUS.warning, STATUS.critical], (it.value - 1) / 4)} />
           <RiskLegend />
         </Card>
       </div>
@@ -597,27 +723,6 @@ function VistaCGM({ dfc }) {
       </div>
     </div>
   );
-}
-
-// ─── EXPORT EXCEL ─────────────────────────────────────────────────────────────
-function exportarExcel(rows, sd, ed) {
-  const data = rows.map((r) => ({
-    Fecha: r.fecha,
-    Hora: r.hora,
-    Turno: r.Turno,
-    Día: r.DiaNom,
-    TipoDía: r.TipoDia,
-    Franja: r.Franja,
-    Categoría: r.Categoría,
-    Subcategoria: r.Subcategoria,
-    Comisaría: r.Comisaría,
-    CGM: r.CGM,
-    ConCámara: r.con_camara ? "SI" : "NO",
-  }));
-  const ws = XLSX.utils.json_to_sheet(data);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Tarima");
-  XLSX.writeFile(wb, `tarima_${sd}_${ed}.xlsx`);
 }
 
 // ─── APP TARIMA ───────────────────────────────────────────────────────────────
@@ -714,50 +819,55 @@ export default function Tarima({ onVolver }) {
     };
   }, [dfc, dfp]);
 
-  const baseInp = { background: "#0d0d1f", border: `1px solid ${T.border}`, color: T.text, borderRadius: 10, padding: "7px 10px", fontSize: 12, fontFamily: "'Inter',sans-serif", outline: "none", width: "100%", colorScheme: "dark" };
+  const baseInp = { background: T.bg2, border: `1px solid ${T.border}`, color: T.text, borderRadius: 10, padding: "7px 10px", fontSize: 12, fontFamily: "'Inter',sans-serif", outline: "none", width: "100%", colorScheme: "dark" };
   const lbl = { fontSize: 11, color: T.text2, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 5, display: "block" };
 
   if (loading) {
     return (
       <div style={{ minHeight: "100vh", background: T.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, fontFamily: "'Inter',sans-serif" }}>
-        <div style={{ width: 44, height: 44, borderRadius: 12, background: `linear-gradient(135deg,${T.accent},${T.accent2})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>🔵</div>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: T.accent, opacity: 0.5, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>🔵</div>
         <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>Cargando datos de Tarima…</div>
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "'Inter',sans-serif" }}>
+    <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-        *{box-sizing:border-box;}
-        ::-webkit-scrollbar{width:5px;height:5px;}
-        ::-webkit-scrollbar-track{background:${T.bg};}
-        ::-webkit-scrollbar-thumb{background:rgba(139,92,246,0.3);border-radius:3px;}
-        @keyframes tarimaPulse{0%,100%{opacity:1;box-shadow:0 0 6px ${T.green};}50%{opacity:.5;box-shadow:0 0 12px ${T.green};}}
+        @media print {
+          @page { size: A4 landscape; margin: 12mm 10mm; }
+          body { background: #fff !important; color: #111 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          .no-print { display: none !important; }
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          .print-header { display: block !important; }
+          .print-scale { transform: scale(0.72); transform-origin: top left; width: 138.9%; }
+        }
+        .print-header { display: none; }
       `}</style>
 
-      <div style={{ background: `linear-gradient(90deg,${T.bg2} 0%,#1a1535 50%,${T.bg2} 100%)`, border: `1px solid ${T.border}`, borderRadius: 16, margin: "14px 20px 0", padding: "14px 24px", display: "flex", alignItems: "center", gap: 18, boxShadow: "0 4px 24px rgba(0,0,0,0.5)" }}>
+    <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "'Inter',sans-serif" }}>
+
+      <div className="no-print" style={{ background: T.bg2, border: `1px solid ${T.border}`, borderRadius: 12, margin: "14px 20px 0", padding: "14px 24px", display: "flex", alignItems: "center", gap: 18 }}>
         {onVolver && (
-          <button onClick={onVolver} style={{ background: "rgba(139,92,246,0.12)", border: `1px solid ${T.border}`, color: T.text2, borderRadius: 10, padding: "8px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", flexShrink: 0 }}>
+          <button onClick={onVolver} style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.text2, borderRadius: 10, padding: "8px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", flexShrink: 0 }}>
             ← Volver
           </button>
         )}
-        <div style={{ width: 40, height: 40, borderRadius: 10, background: `linear-gradient(135deg,${T.accent},${T.accent2})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>🔵</div>
+        <div style={{ width: 38, height: 38, borderRadius: 10, background: T.accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, flexShrink: 0 }}>🔵</div>
         <div>
-          <div style={{ fontSize: 16, fontWeight: 800, color: T.text, letterSpacing: "-0.3px" }}>Centro de Operaciones Lomas</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: T.text, letterSpacing: "-0.3px" }}>Centro de Operaciones Lomas</div>
           <div style={{ fontSize: 11, color: T.text2, marginTop: 2 }}>Análisis Operativo · Sistema de monitoreo del Partido de Lomas de Zamora</div>
         </div>
-        <div style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)", borderRadius: 100, padding: "5px 12px", fontSize: 10, fontWeight: 700, color: "#6ee7b7", letterSpacing: "0.06em" }}>
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: T.green, display: "inline-block", animation: "tarimaPulse 2s infinite" }} />
+        <div style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(25,158,112,0.12)", border: "1px solid rgba(25,158,112,0.35)", borderRadius: 100, padding: "5px 12px", fontSize: 10, fontWeight: 700, color: T.green, letterSpacing: "0.06em" }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: T.green, display: "inline-block", animation: "livePulse 2s infinite" }} />
           EN VIVO
         </div>
       </div>
 
-      <div style={{ maxWidth: 1440, margin: "0 auto", padding: "16px 20px" }}>
-        {error && <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 10, padding: "10px 14px", color: "#fca5a5", fontSize: 12, marginBottom: 14 }}>⚠ {error}</div>}
+      <div className="print-scale" style={{ maxWidth: 1440, margin: "0 auto", padding: "16px 20px" }}>
+        {error && <div style={{ background: "rgba(230,103,103,0.1)", border: "1px solid rgba(230,103,103,0.3)", borderRadius: 10, padding: "10px 14px", color: T.red, fontSize: 12, marginBottom: 14 }}>⚠ {error}</div>}
 
-        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, marginBottom: 16, overflow: "hidden" }}>
+        <div className="no-print" style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, marginBottom: 16, overflow: "hidden" }}>
           <button onClick={() => setFiltersOpen((o) => !o)} style={{ width: "100%", background: "transparent", border: "none", padding: "12px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", color: T.text2 }}>
             <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: 8 }}><span>⚙</span> FILTROS</span>
             <span style={{ fontSize: 12, color: T.muted, transition: "transform 0.2s", display: "inline-block", transform: filtersOpen ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
@@ -788,17 +898,17 @@ export default function Tarima({ onVolver }) {
         </div>
 
         {kpis.nCur > 0 && kpis.dPct > 20 && (
-          <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 12, padding: "9px 14px", fontSize: 13, color: "#fca5a5", marginBottom: 10 }}>
+          <div style={{ background: "rgba(230,103,103,0.1)", border: "1px solid rgba(230,103,103,0.3)", borderRadius: 12, padding: "9px 14px", fontSize: 13, color: T.red, marginBottom: 10 }}>
             🚨 <b>Alerta:</b> Novedades <b>+{kpis.dPct.toFixed(1)}%</b> vs período anterior · Categoría líder: <b>{kpis.catTop}</b> ({fmt(kpis.catTopN)}) · CGM más activo: <b>{kpis.cgmTop}</b>
           </div>
         )}
         {kpis.nCur > 0 && kpis.dPct < -20 && (
-          <div style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)", borderRadius: 12, padding: "9px 14px", fontSize: 13, color: "#6ee7b7", marginBottom: 10 }}>
+          <div style={{ background: "rgba(25,158,112,0.1)", border: "1px solid rgba(25,158,112,0.3)", borderRadius: 12, padding: "9px 14px", fontSize: 13, color: T.green, marginBottom: 10 }}>
             ✅ <b>Tendencia positiva:</b> Novedades <b>{kpis.dPct.toFixed(1)}%</b> vs período anterior
           </div>
         )}
 
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 18, flexWrap: "wrap" }}>
+        <div className="no-print" style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 18, flexWrap: "wrap" }}>
           {[["ejecutiva", "📊 Ejecutivo"], ["territorial", "🗺️ Territorial"], ["cgm", "📡 Por CGM"]].map(([id, label]) => (
             <button
               key={id}
@@ -807,19 +917,38 @@ export default function Tarima({ onVolver }) {
             >{label}</button>
           ))}
           <button
-            onClick={() => exportarExcel(dfc, sd, ed)}
+            onClick={() => window.print()}
             style={{ marginLeft: "auto", background: T.accent, border: "none", color: "#fff", borderRadius: 10, padding: "8px 16px", fontSize: 11, fontWeight: 700, cursor: "pointer", letterSpacing: "0.05em" }}
-          >⬇ Exportar</button>
+          >⬇ Exportar PDF</button>
         </div>
 
         {vista === "ejecutiva" && <VistaEjecutiva dfc={dfc} dfp={dfp} sd={sd} ed={ed} kpis={kpis} pieMode={pieMode} setPieMode={setPieMode} />}
         {vista === "territorial" && <VistaTerritorial dfc={dfc} />}
         {vista === "cgm" && <VistaCGM dfc={dfc} />}
 
+        {/* ENCABEZADO PRINT */}
+        <div className="print-header" style={{ marginBottom: 16, paddingBottom: 10, borderBottom: "2px solid #8b5cf6" }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: "#111" }}>Centro de Operaciones Lomas · Tarima</div>
+          <div style={{ fontSize: 11, color: "#555", marginTop: 4 }}>
+            Análisis Operativo de Novedades &nbsp;·&nbsp;
+            Período: {sd || "–"} → {ed || "–"} &nbsp;·&nbsp;
+            {filters.cgm.length ? `CGM: ${filters.cgm.join(", ")} · ` : ""}
+            {filters.categoria.length ? `Categoría: ${filters.categoria.join(", ")} · ` : ""}
+            {filters.subcategoria.length ? `Subcategoría: ${filters.subcategoria.join(", ")} · ` : ""}
+            {filters.comisaria.length ? `Comisaría: ${filters.comisaria.join(", ")} · ` : ""}
+            {filters.turno.length ? `Turno: ${filters.turno.join(", ")} · ` : ""}
+            {fmt(kpis.nCur)} registros &nbsp;·&nbsp;
+            Generado: {new Date().toLocaleString("es-AR")}
+          </div>
+        </div>
+
         <div style={{ textAlign: "center", color: T.muted, fontSize: 10, marginTop: 24, padding: "8px 0", borderTop: "1px solid rgba(139,92,246,0.08)" }}>
           COL · Análisis Operativo &nbsp;·&nbsp; {sd || "–"} → {ed || "–"} &nbsp;·&nbsp; {fmt(kpis.nCur)} registros
         </div>
       </div>
+
+      <ChatWidget contexto="tarima"/>
     </div>
+    </>
   );
 }
