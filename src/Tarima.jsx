@@ -328,9 +328,16 @@ function StackedBars({ groups, seriesKeys, colorFor, height = 210 }) {
   return (
     <div>
       <div style={{ overflowX: "auto", paddingBottom: 4 }}>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 14, height: height + 34, width: "fit-content", minWidth: "100%" }}>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 14, height: height + 28, width: "fit-content", minWidth: "100%" }}>
         {groups.map((g) => {
           const presentes = seriesKeys.filter((k) => g.values[k]);
+          // El stack se calcula sobre un presupuesto que ya descuenta los gaps entre
+          // segmentos, para que la suma de alturas + gaps nunca supere `height`
+          // (si no, el bar mas alto se sale del contenedor y el navegador lo clipea
+          // por la regla CSS que fuerza overflow-y:auto cuando overflow-x no es visible).
+          const gapTotal = Math.max(0, presentes.length - 1) * 2;
+          const barBudget = Math.max(0, height - gapTotal);
+          const barTotalPx = g.total > 0 ? (g.total / max) * barBudget : 0;
           return (
             <div key={g.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 28, flexShrink: 0 }}>
               <div style={{ fontSize: 9, color: T.text2, marginBottom: 3, fontWeight: 700 }}>{fmt(g.total)}</div>
@@ -338,14 +345,14 @@ function StackedBars({ groups, seriesKeys, colorFor, height = 210 }) {
                 {presentes.map((k, pi) => {
                   const ki = seriesKeys.indexOf(k);
                   const v = g.values[k] || 0;
-                  const h = Math.max(2, (v / max) * height);
+                  const h = g.total > 0 ? (v / g.total) * barTotalPx : 0;
                   const esUltimo = pi === presentes.length - 1;
                   return (
                     <div
                       key={k}
                       onMouseMove={(e) => setTooltip({ x: e.clientX, y: e.clientY, value: fmt(v), label: `${g.label} · ${k}` })}
                       onMouseLeave={() => setTooltip(null)}
-                      style={{ height: `${h}px`, background: colorOf(k, ki), borderRadius: esUltimo ? "3px 3px 0 0" : 0, cursor: "pointer" }}
+                      style={{ height: `${Math.max(0.5, h)}px`, background: colorOf(k, ki), borderRadius: esUltimo ? "3px 3px 0 0" : 0, cursor: "pointer" }}
                     />
                   );
                 })}
