@@ -389,6 +389,12 @@ export default async function handler(req, res) {
   const historial = [{ role: "system", content: SYSTEM_PROMPT + contextoNota }, ...messages];
   const charts = [];
 
+  res.writeHead(200, {
+    "Content-Type": "application/x-ndjson; charset=utf-8",
+    "Cache-Control": "no-cache",
+  });
+  const emitir = (evento) => res.write(`${JSON.stringify(evento)}\n`);
+
   try {
     for (let iter = 0; iter < MAX_TOOL_ITERATIONS; iter++) {
       const respuesta = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -420,6 +426,7 @@ export default async function handler(req, res) {
       if (msg.tool_calls && msg.tool_calls.length > 0) {
         historial.push(msg);
         for (const call of msg.tool_calls) {
+          emitir({ tipo: "tool_call", herramienta: call.function.name });
           let resultado;
           try {
             const args = call.function?.arguments ? JSON.parse(call.function.arguments) : {};
@@ -441,13 +448,16 @@ export default async function handler(req, res) {
         continue;
       }
 
-      res.status(200).json({ reply: msg.content || "", charts });
+      emitir({ tipo: "final", reply: msg.content || "", charts });
+      res.end();
       return;
     }
 
-    res.status(500).json({ error: "El modelo no llegó a una respuesta final después de varios pasos." });
+    emitir({ tipo: "error", error: "El modelo no llegó a una respuesta final después de varios pasos." });
+    res.end();
   } catch (e) {
     console.error("Error en /api/chat:", e);
-    res.status(500).json({ error: e.message || "Error interno." });
+    emitir({ tipo: "error", error: e.message || "Error interno." });
+    res.end();
   }
 }
