@@ -168,7 +168,7 @@ function Heatmap({ matrix, rowLabels, colLabels }) {
   const max = Math.max(...matrix.flat(),1);
   return (
     <div style={{overflowX:"auto"}}>
-      <div style={{display:"grid",gridTemplateColumns:`52px repeat(${colLabels.length},1fr)`,gap:2,minWidth:400}}>
+      <div style={{display:"grid",gridTemplateColumns:`52px repeat(${colLabels.length},minmax(14px,1fr))`,gap:2,minWidth:400}}>
         <div/>
         {colLabels.map(l=><div key={l} style={{fontSize:8,color:T.muted,textAlign:"center",paddingBottom:3,fontFamily:"'Inter',sans-serif"}}>{l}</div>)}
         {rowLabels.map((row,ri)=>(
@@ -177,7 +177,7 @@ function Heatmap({ matrix, rowLabels, colLabels }) {
             {colLabels.map((_,ci)=>{
               const v=matrix[ri][ci]; const intensity=v/max;
               const bg = intensity<0.01 ? "rgba(255,255,255,0.03)" : `rgba(139,92,246,${0.08+intensity*0.82})`;
-              return <div key={`${ri}-${ci}`} style={{background:bg,borderRadius:2,aspectRatio:"1",display:"flex",alignItems:"center",justifyContent:"center",fontSize:7,color:intensity>0.5?"#e2e8f0":"#64748b",fontFamily:"'Inter',sans-serif",cursor:"default"}} title={`${row} ${colLabels[ci]}: ${v}`}>{v>0?v:""}</div>;
+              return <div key={`${ri}-${ci}`} style={{background:bg,borderRadius:2,height:18,display:"flex",alignItems:"center",justifyContent:"center",fontSize:7,color:intensity>0.5?"#e2e8f0":"#64748b",fontFamily:"'Inter',sans-serif",cursor:"default",transition:"background 0.3s ease"}} title={`${row} ${colLabels[ci]}: ${v}`}>{v>0?v:""}</div>;
             })}
           </Fragment>
         ))}

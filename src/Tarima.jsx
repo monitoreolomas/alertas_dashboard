@@ -187,7 +187,7 @@ function HeatGrid({ matrix, rowLabels, colLabels }) {
   const max = Math.max(...matrix.flat(), 1);
   return (
     <div style={{ overflowX: "auto" }}>
-      <div style={{ display: "grid", gridTemplateColumns: `72px repeat(${colLabels.length},1fr)`, gap: 2, minWidth: 260 }}>
+      <div style={{ display: "grid", gridTemplateColumns: `72px repeat(${colLabels.length}, minmax(34px,1fr))`, gap: 3, minWidth: 260 }}>
         <div />
         {colLabels.map((l) => (
           <div key={l} style={{ fontSize: 9, color: T.muted, textAlign: "center", paddingBottom: 4 }}>{l}</div>
@@ -200,7 +200,7 @@ function HeatGrid({ matrix, rowLabels, colLabels }) {
               const t = v / max;
               const bg = t < 0.02 ? "rgba(255,255,255,0.03)" : `rgba(139,92,246,${0.1 + t * 0.8})`;
               return (
-                <div key={ci} style={{ background: bg, borderRadius: 3, aspectRatio: "1.5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: t > 0.5 ? "#fff" : T.muted }}>
+                <div key={ci} style={{ background: bg, borderRadius: 3, height: 24, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: t > 0.5 ? "#fff" : T.muted, transition: "background 0.3s ease" }}>
                   {v > 0 ? v : ""}
                 </div>
               );
