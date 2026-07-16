@@ -381,6 +381,10 @@ export default async function handler(req, res) {
     return;
   }
 
+  const hoyAR = new Date().toLocaleDateString("en-CA", { timeZone: "America/Argentina/Buenos_Aires" });
+  const diaSemanaAR = new Date().toLocaleDateString("es-AR", { timeZone: "America/Argentina/Buenos_Aires", weekday: "long" });
+  const fechaNota = `\n\nHoy es ${diaSemanaAR} ${hoyAR} (formato AAAA-MM-DD, zona horaria Argentina). Usá esta fecha para resolver vos mismo cualquier expresión relativa que use el usuario ("esta semana", "el mes pasado", "los últimos 7 días", "ayer", etc.) al armar los parámetros fecha_desde/fecha_hasta de las herramientas — nunca le preguntes al usuario qué fecha es hoy.`;
+
   const contextoNota =
     contexto === "tarima"
       ? "\n\nEl usuario está viendo ahora mismo el reporte TARIMA (Centro de Operaciones Lomas)."
@@ -388,7 +392,7 @@ export default async function handler(req, res) {
       ? "\n\nEl usuario está viendo ahora mismo el reporte ALERTAS (Centro de Gestión Municipal)."
       : "";
 
-  const historial = [{ role: "system", content: SYSTEM_PROMPT + contextoNota }, ...messages];
+  const historial = [{ role: "system", content: SYSTEM_PROMPT + fechaNota + contextoNota }, ...messages];
   const charts = [];
 
   res.writeHead(200, {
