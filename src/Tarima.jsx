@@ -327,7 +327,8 @@ function StackedBars({ groups, seriesKeys, colorFor, height = 210 }) {
   const colorOf = (k, ki) => (colorFor ? colorFor(k, ki) : CAT_HUES[ki % CAT_HUES.length]);
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 14, height: height + 24, overflowX: "auto", paddingBottom: 4 }}>
+      <div style={{ overflowX: "auto", paddingBottom: 4 }}>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 14, height: height + 34, width: "fit-content", minWidth: "100%" }}>
         {groups.map((g) => {
           const presentes = seriesKeys.filter((k) => g.values[k]);
           return (
@@ -353,6 +354,7 @@ function StackedBars({ groups, seriesKeys, colorFor, height = 210 }) {
             </div>
           );
         })}
+      </div>
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 10 }}>
         {seriesKeys.map((k, ki) => (

@@ -36,6 +36,61 @@ function descargarConversacion(messages) {
   descargarTexto(`conversacion_${new Date().toISOString().slice(0, 10)}.txt`, texto);
 }
 
+function escapeHTML(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function descargarMensajePDF(m, chartsWrapperEl, titulo) {
+  const win = window.open("", "_blank");
+  if (!win) return;
+
+  let chartsHTML = "";
+  if (chartsWrapperEl) {
+    Array.from(chartsWrapperEl.children).forEach((frame) => {
+      const clone = frame.cloneNode(true);
+      clone.querySelectorAll("button").forEach((b) => b.remove());
+      chartsHTML += clone.outerHTML;
+    });
+  }
+
+  const fecha = new Date().toLocaleString("es-AR");
+  const html = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>respuesta_asistente_${new Date().toISOString().slice(0, 10)}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+  * { box-sizing: border-box; }
+  body { background:#ffffff; color:#18181b; font-family:'Inter',sans-serif; padding:32px; max-width:760px; margin:0 auto; }
+  .header { border-bottom:2px solid #8b5cf6; padding-bottom:10px; margin-bottom:18px; }
+  .header .tit { font-size:16px; font-weight:800; }
+  .header .sub { font-size:11px; color:#71717a; margin-top:3px; }
+  .msg { white-space:pre-wrap; font-size:13px; line-height:1.65; margin-bottom:18px; }
+  .pdf-export, .pdf-export * { color:#18181b !important; }
+  .pdf-export svg text { fill:#18181b !important; }
+  .pdf-export > div { background:#ffffff !important; box-shadow:none !important; border:1px solid #e4e4e7 !important; border-radius:10px; padding:12px 14px !important; margin-top:10px !important; }
+  @media print { body { padding:12px; } }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="tit">${escapeHTML(titulo)}</div>
+    <div class="sub">Generado ${fecha}</div>
+  </div>
+  <div class="msg">${escapeHTML(m.content)}</div>
+  <div class="pdf-export">${chartsHTML}</div>
+</body>
+</html>`;
+
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+  setTimeout(() => win.print(), 350);
+}
+
 export default function ChatWidget({ contexto = "alertas" }) {
   const cfg = CONTEXTOS[contexto] || CONTEXTOS.alertas;
   const [open, setOpen] = useState(false);
@@ -44,6 +99,7 @@ export default function ChatWidget({ contexto = "alertas" }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const scrollRef = useRef(null);
+  const chartsRefs = useRef({});
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -179,19 +235,27 @@ export default function ChatWidget({ contexto = "alertas" }) {
                   {m.content}
                 </div>
                 {m.charts && m.charts.length > 0 && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div ref={(el) => { chartsRefs.current[i] = el; }} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     {m.charts.map((c, ci) => (
                       <ChatChart key={ci} spec={c} />
                     ))}
                   </div>
                 )}
                 {m.role === "assistant" && m.content && (
-                  <button
-                    onClick={() => descargarMensaje(m)}
-                    style={{ alignSelf: "flex-start", background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 10, padding: "0 2px", display: "flex", alignItems: "center", gap: 3 }}
-                  >
-                    ⬇ Descargar respuesta
-                  </button>
+                  <div style={{ display: "flex", gap: 10, alignSelf: "flex-start" }}>
+                    <button
+                      onClick={() => descargarMensaje(m)}
+                      style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 10, padding: "0 2px", display: "flex", alignItems: "center", gap: 3 }}
+                    >
+                      ⬇ Texto
+                    </button>
+                    <button
+                      onClick={() => descargarMensajePDF(m, chartsRefs.current[i], cfg.titulo)}
+                      style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 10, padding: "0 2px", display: "flex", alignItems: "center", gap: 3 }}
+                    >
+                      📄 PDF
+                    </button>
+                  </div>
                 )}
               </div>
             ))}
