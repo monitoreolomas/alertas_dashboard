@@ -24,6 +24,52 @@ function parseInline(text, keyPrefix) {
   return parts;
 }
 
+function esFilaTabla(line) {
+  return /^\s*\|.+\|\s*$/.test(line);
+}
+
+function esSeparadorTabla(line) {
+  return /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?\s*$/.test(line);
+}
+
+function celdasDeFila(line) {
+  let l = line.trim();
+  if (l.startsWith("|")) l = l.slice(1);
+  if (l.endsWith("|")) l = l.slice(0, -1);
+  return l.split("|").map((c) => c.trim());
+}
+
+function Tabla({ header, filas, keyBase }) {
+  return (
+    <div style={{ overflowX: "auto", margin: "6px 0 10px" }}>
+      <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 11.5 }}>
+        {header && (
+          <thead>
+            <tr>
+              {header.map((h, hi) => (
+                <th key={hi} style={{ textAlign: "left", padding: "5px 10px", borderBottom: "1px solid rgba(255,255,255,0.18)", fontWeight: 700, whiteSpace: "nowrap" }}>
+                  {parseInline(h, `${keyBase}-h-${hi}`)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+        )}
+        <tbody>
+          {filas.map((f, fi) => (
+            <tr key={fi} style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+              {f.map((c, ci) => (
+                <td key={ci} style={{ padding: "5px 10px", whiteSpace: "nowrap" }}>
+                  {parseInline(c, `${keyBase}-${fi}-${ci}`)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function MarkdownLite({ text }) {
   const lines = (text || "").split("\n");
   const blocks = [];
@@ -32,6 +78,23 @@ export default function MarkdownLite({ text }) {
 
   while (i < lines.length) {
     const line = lines[i];
+
+    if (esFilaTabla(line)) {
+      const filasCrudas = [];
+      while (i < lines.length && esFilaTabla(lines[i])) {
+        filasCrudas.push({ celdas: celdasDeFila(lines[i]), esSeparador: esSeparadorTabla(lines[i]) });
+        i++;
+      }
+      let header = null;
+      let filas = filasCrudas.map((f) => f.celdas);
+      if (filasCrudas.length >= 2) {
+        header = filasCrudas[0].celdas;
+        filas = filasCrudas[1].esSeparador ? filasCrudas.slice(2).map((f) => f.celdas) : filasCrudas.slice(1).map((f) => f.celdas);
+      }
+      blocks.push(<Tabla key={key} header={header} filas={filas} keyBase={key} />);
+      key++;
+      continue;
+    }
 
     if (/^#{1,3}\s+/.test(line)) {
       const nivel = line.match(/^#+/)[0].length;
@@ -91,7 +154,7 @@ export default function MarkdownLite({ text }) {
 
     const paraLines = [line];
     i++;
-    while (i < lines.length && lines[i].trim() !== "" && !/^(-|\*)\s+/.test(lines[i]) && !/^\d+\.\s+/.test(lines[i]) && !/^#{1,3}\s+/.test(lines[i])) {
+    while (i < lines.length && lines[i].trim() !== "" && !/^(-|\*)\s+/.test(lines[i]) && !/^\d+\.\s+/.test(lines[i]) && !/^#{1,3}\s+/.test(lines[i]) && !esFilaTabla(lines[i])) {
       paraLines.push(lines[i]);
       i++;
     }
