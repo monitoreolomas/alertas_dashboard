@@ -33,7 +33,7 @@ export default function Home() {
         <img
           src={logoLomas}
           alt="Municipio Lomas de Zamora"
-          style={{ width: 168, height: 168, borderRadius: "50%", objectFit: "cover", marginBottom: 20 }}
+          style={{ width: 240, height: 240, borderRadius: "50%", objectFit: "cover", marginBottom: 24 }}
         />
         <div style={{ fontSize: 26, fontWeight: 800, color: T.text }}>Elegí un reporte</div>
       </div>
