@@ -121,6 +121,15 @@ function calcularFranja(hora) {
   return FRANJAS[Math.min(Math.floor(hora / 3), 7)];
 }
 
+// Algunas filas de la planilla traen basura tipo "FALSE"/"TRUE" en columnas
+// de texto (arrastre de una celda booleana mal alineada). Las tratamos como
+// dato faltante en vez de mostrarlas como si fueran un valor real.
+function limpiarTexto(valor, fallback) {
+  const v = (valor || "").trim();
+  if (!v || /^(true|false|null|undefined|nan|0)$/i.test(v)) return fallback;
+  return v;
+}
+
 function fechaISO(date) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
@@ -171,8 +180,8 @@ export function derivarFilas(csvText) {
       Franja: calcularFranja(hora),
       Categoría: categoria,
       Subcategoria: subcategoria,
-      Comisaría: r["Comisaría"] || "Sin dato",
-      CGM: r["CGM"] || "Sin CGM",
+      Comisaría: limpiarTexto(r["Comisaría"], "Sin dato"),
+      CGM: limpiarTexto(r["CGM"], "Sin CGM"),
       con_camara: String(r["¿Se ve por cámara?"] || "").toUpperCase() === "SI",
       riesgo: RIESGO_MAP[categoria] ?? 1,
     });

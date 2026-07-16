@@ -17,9 +17,10 @@ const CGM_GEOJSON = {"type":"FeatureCollection","features":[{"type":"Feature","p
 const CGM_OPTIONS = CGM_GEOJSON.features.map(f => f.properties.name).sort();
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
+// Paleta categórica validada (CVD-safe sobre superficie oscura, ver skill dataviz).
 const CAT_COLORS = {
-  "Ambulancia":"#8b5cf6","Policía":"#10b981","Bomberos":"#f59e0b",
-  "Sirena":"#38bdf8","Violencia de Género":"#ef4444","default":"#64748b",
+  "Ambulancia":"#8b5cf6","Policía":"#199e70","Bomberos":"#c98500",
+  "Sirena":"#3987e5","Violencia de Género":"#ef4444","default":"#64748b",
 };
 const DIAS = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
 
@@ -148,7 +149,18 @@ function Card({ title, icon, children, style={} }) {
   );
 }
 
+function ChartTooltip({ tooltip }) {
+  if (!tooltip) return null;
+  return (
+    <div style={{position:"fixed",left:tooltip.x+14,top:tooltip.y+14,background:"#0d0d1f",border:`1px solid ${T.border}`,borderRadius:8,padding:"6px 10px",fontSize:11,color:T.text,pointerEvents:"none",zIndex:9999,whiteSpace:"nowrap",boxShadow:"0 4px 16px rgba(0,0,0,0.4)",fontFamily:"'Inter',sans-serif"}}>
+      {tooltip.value!=null && <div style={{fontWeight:700}}>{tooltip.value}</div>}
+      {tooltip.label && <div style={{color:T.text2,fontSize:10}}>{tooltip.label}</div>}
+    </div>
+  );
+}
+
 function HBar({ label, value, max, color, total }) {
+  const [tooltip,setTooltip] = useState(null);
   const pv = max>0?(value/max)*100:0;
   const pt = total>0?((value/total)*100).toFixed(1):0;
   return (
@@ -157,14 +169,20 @@ function HBar({ label, value, max, color, total }) {
         <span style={{fontSize:11,color:T.text2,fontFamily:"'Inter',sans-serif",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"60%"}}>{label}</span>
         <span style={{fontSize:11,color:T.muted,fontFamily:"'Inter',sans-serif",whiteSpace:"nowrap"}}>{fmt(value)} <span style={{color:"#475569"}}>({pt}%)</span></span>
       </div>
-      <div style={{height:5,background:"rgba(255,255,255,0.05)",borderRadius:3,overflow:"hidden"}}>
-        <div style={{height:"100%",width:`${pv}%`,background:color,borderRadius:3,transition:"width 0.5s ease"}}/>
+      <div style={{height:6,background:"rgba(255,255,255,0.05)",borderRadius:3,overflow:"hidden"}}>
+        <div
+          onMouseMove={(e)=>setTooltip({x:e.clientX,y:e.clientY,value:fmt(value),label})}
+          onMouseLeave={()=>setTooltip(null)}
+          style={{height:"100%",width:`${pv}%`,background:color,borderRadius:"0 4px 4px 0",transition:"width 0.5s ease",cursor:"pointer"}}
+        />
       </div>
+      <ChartTooltip tooltip={tooltip}/>
     </div>
   );
 }
 
 function Heatmap({ matrix, rowLabels, colLabels }) {
+  const [tooltip,setTooltip] = useState(null);
   const max = Math.max(...matrix.flat(),1);
   return (
     <div style={{overflowX:"auto"}}>
@@ -177,11 +195,19 @@ function Heatmap({ matrix, rowLabels, colLabels }) {
             {colLabels.map((_,ci)=>{
               const v=matrix[ri][ci]; const intensity=v/max;
               const bg = intensity<0.01 ? "rgba(255,255,255,0.03)" : `rgba(139,92,246,${0.08+intensity*0.82})`;
-              return <div key={`${ri}-${ci}`} style={{background:bg,borderRadius:2,height:18,display:"flex",alignItems:"center",justifyContent:"center",fontSize:7,color:intensity>0.5?"#e2e8f0":"#64748b",fontFamily:"'Inter',sans-serif",cursor:"default",transition:"background 0.3s ease"}} title={`${row} ${colLabels[ci]}: ${v}`}>{v>0?v:""}</div>;
+              return (
+                <div
+                  key={`${ri}-${ci}`}
+                  onMouseMove={(e)=>setTooltip({x:e.clientX,y:e.clientY,value:fmt(v),label:`${row} · ${colLabels[ci]}`})}
+                  onMouseLeave={()=>setTooltip(null)}
+                  style={{background:bg,borderRadius:2,height:18,display:"flex",alignItems:"center",justifyContent:"center",fontSize:7,color:intensity>0.5?"#e2e8f0":"#64748b",fontFamily:"'Inter',sans-serif",cursor:"pointer",transition:"background 0.3s ease"}}
+                >{v>0?v:""}</div>
+              );
             })}
           </Fragment>
         ))}
       </div>
+      <ChartTooltip tooltip={tooltip}/>
     </div>
   );
 }
