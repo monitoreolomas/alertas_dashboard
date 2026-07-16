@@ -20,7 +20,7 @@ const CGM_OPTIONS = CGM_GEOJSON.features.map(f => f.properties.name).sort();
 // Paleta categórica validada (CVD-safe sobre superficie oscura, ver skill dataviz).
 const CAT_COLORS = {
   "Ambulancia":"#8b5cf6","Policía":"#199e70","Bomberos":"#c98500",
-  "Sirena":"#3987e5","Violencia de Género":"#ef4444","default":"#64748b",
+  "Sirena":"#3987e5","Violencia de Género":T.red,"default":"#64748b",
 };
 const DIAS = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
 
@@ -117,16 +117,15 @@ function KPI({ label, value, sub, delta, sparkValues, color=T.accent, icon, inve
     deltaIcon  = isPos ? "▲" : isNeg ? "▼" : "●";
   }
   return (
-    <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:16,padding:"16px 18px",position:"relative",overflow:"hidden"}}>
-      <div style={{position:"absolute",top:0,left:0,right:0,height:3,background:`linear-gradient(90deg,${color},${color}99)`,borderRadius:"16px 16px 0 0"}}/>
-      <div style={{fontSize:11,color:T.text2,fontWeight:600,letterSpacing:"0.07em",textTransform:"uppercase",marginBottom:4,fontFamily:"'Inter',sans-serif"}}>
-        {icon && <span style={{marginRight:5}}>{icon}</span>}{label}
+    <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:"18px 20px"}}>
+      <div style={{fontSize:11,color:T.text2,fontWeight:500,letterSpacing:"0.04em",textTransform:"uppercase",marginBottom:8,fontFamily:"'Inter',sans-serif",display:"flex",alignItems:"center",gap:6}}>
+        {icon && <span style={{fontSize:13,opacity:0.85}}>{icon}</span>}{label}
       </div>
-      <div style={{fontSize:28,fontWeight:800,color:T.text,lineHeight:1.1,marginBottom:4,fontFamily:"'Inter',sans-serif"}}>{value}</div>
+      <div style={{fontSize:26,fontWeight:600,color:T.text,lineHeight:1.1,marginBottom:6,fontFamily:"'Inter',sans-serif",letterSpacing:"-0.01em"}}>{value}</div>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
         <div>
           {delta != null && (
-            <div style={{fontSize:11,fontWeight:600,color:deltaColor,fontFamily:"'Inter',sans-serif"}}>
+            <div style={{fontSize:11,fontWeight:500,color:deltaColor,fontFamily:"'Inter',sans-serif"}}>
               {deltaIcon} {Math.abs(dNum)}% vs anterior
             </div>
           )}
@@ -140,9 +139,9 @@ function KPI({ label, value, sub, delta, sparkValues, color=T.accent, icon, inve
 
 function Card({ title, icon, children, style={} }) {
   return (
-    <div style={{background:T.card,border:`1px solid rgba(139,92,246,0.14)`,borderRadius:16,padding:"16px 18px",boxShadow:"0 4px 20px rgba(0,0,0,0.3)",...style}}>
-      <div style={{fontSize:11,fontWeight:700,color:T.text,letterSpacing:"0.05em",textTransform:"uppercase",borderBottom:`1px solid rgba(139,92,246,0.15)`,paddingBottom:8,marginBottom:12,display:"flex",alignItems:"center",gap:7,fontFamily:"'Inter',sans-serif"}}>
-        {icon && <span>{icon}</span>}{title}
+    <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:"18px 20px",...style}}>
+      <div style={{fontSize:11,fontWeight:600,color:T.text2,letterSpacing:"0.04em",textTransform:"uppercase",borderBottom:`1px solid ${T.border}`,paddingBottom:10,marginBottom:14,display:"flex",alignItems:"center",gap:7,fontFamily:"'Inter',sans-serif"}}>
+        {icon && <span style={{fontSize:13,opacity:0.85}}>{icon}</span>}{title}
       </div>
       {children}
     </div>
@@ -152,7 +151,7 @@ function Card({ title, icon, children, style={} }) {
 function ChartTooltip({ tooltip }) {
   if (!tooltip) return null;
   return (
-    <div style={{position:"fixed",left:tooltip.x+14,top:tooltip.y+14,background:"#0d0d1f",border:`1px solid ${T.border}`,borderRadius:8,padding:"6px 10px",fontSize:11,color:T.text,pointerEvents:"none",zIndex:9999,whiteSpace:"nowrap",boxShadow:"0 4px 16px rgba(0,0,0,0.4)",fontFamily:"'Inter',sans-serif"}}>
+    <div style={{position:"fixed",left:tooltip.x+14,top:tooltip.y+14,background:T.card,border:`1px solid ${T.border}`,borderRadius:8,padding:"6px 10px",fontSize:11,color:T.text,pointerEvents:"none",zIndex:9999,whiteSpace:"nowrap",boxShadow:"0 4px 16px rgba(0,0,0,0.4)",fontFamily:"'Inter',sans-serif"}}>
       {tooltip.value!=null && <div style={{fontWeight:700}}>{tooltip.value}</div>}
       {tooltip.label && <div style={{color:T.text2,fontSize:10}}>{tooltip.label}</div>}
     </div>
@@ -215,7 +214,7 @@ function Heatmap({ matrix, rowLabels, colLabels }) {
 // ─── FILTROS (main dashboard) ─────────────────────────────────────────────────
 function FiltersPanel({ filters, setFilters, options, open, setOpen }) {
   const baseInp = {
-    background:"#0d0d1f",border:`1px solid ${T.border}`,color:T.text,
+    background:T.bg2,border:`1px solid ${T.border}`,color:T.text,
     borderRadius:10,padding:"7px 10px",fontSize:12,
     fontFamily:"'Inter',sans-serif",outline:"none",width:"100%",
   };
@@ -490,7 +489,7 @@ function ViewMapa({ data, filters, setFilters }) {
     if (t < 0.25) return { fill:`rgba(109,40,217,${0.2+t*1.2})`, opacity:0.85 };
     if (t < 0.5)  return { fill:`rgba(139,92,246,${0.3+t*0.8})`, opacity:0.88 };
     if (t < 0.75) return { fill:`rgba(245,158,11,${0.4+t*0.6})`, opacity:0.9 };
-    return { fill:`rgba(239,68,68,${0.5+t*0.5})`, opacity:0.92 };
+    return { fill:`rgba(230,103,103,${0.5+t*0.5})`, opacity:0.92 };
   }
 
   useEffect(() => {
@@ -590,9 +589,9 @@ function ViewMapa({ data, filters, setFilters }) {
 const AGE_RANGES = [
   { label:"18–25", min:18,  max:25,  color:"#38bdf8" },
   { label:"26–35", min:26,  max:35,  color:"#8b5cf6" },
-  { label:"36–45", min:36,  max:45,  color:"#10b981" },
-  { label:"46–55", min:46,  max:55,  color:"#f59e0b" },
-  { label:"56–65", min:56,  max:65,  color:"#ef4444" },
+  { label:"36–45", min:36,  max:45,  color:T.green },
+  { label:"46–55", min:46,  max:55,  color:T.amber },
+  { label:"56–65", min:56,  max:65,  color:T.red },
   { label:"66–75", min:66,  max:75,  color:"#f472b6" },
   { label:"76–100",min:76,  max:100, color:"#a78bfa" },
 ];
@@ -838,7 +837,7 @@ function ViewUsuarios() {
 
   // Estilos inputs
   const baseInp = {
-    background:"#0d0d1f", border:`1px solid ${T.border}`, color:T.text,
+    background:T.bg2, border:`1px solid ${T.border}`, color:T.text,
     borderRadius:10, padding:"7px 10px", fontSize:12,
     fontFamily:"'Inter',sans-serif", outline:"none", width:"100%",
   };
@@ -853,7 +852,7 @@ function ViewUsuarios() {
   // ── Estados de carga / error ───────────────────────────────────────────────
   if (estado === "cargando") return (
     <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:300,gap:16}}>
-      <div style={{width:44,height:44,borderRadius:12,background:`linear-gradient(135deg,${T.accent},${T.accent2})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,opacity:0.6}}>👥</div>
+      <div style={{width:44,height:44,borderRadius:12,background:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,opacity:0.5}}>👥</div>
       <div style={{fontSize:12,color:T.muted,fontWeight:500,fontFamily:"'Inter',sans-serif"}}>Cargando usuarios…</div>
     </div>
   );
@@ -931,7 +930,7 @@ function ViewUsuarios() {
           {ultimaActualizacion && <span>🕐 Actualizado: {ultimaActualizacion}</span>}
           {totalActivos > 0 && <span style={{color:"#475569"}}>· Total activos cargados: {totalActivos.toLocaleString("es-AR")}</span>}
         </div>
-        <div style={{fontSize:10,color:T.muted,fontFamily:"'Inter',sans-serif",background:"rgba(16,185,129,0.07)",border:"1px solid rgba(16,185,129,0.2)",borderRadius:8,padding:"4px 12px",display:"flex",alignItems:"center",gap:6}}>
+        <div style={{fontSize:10,color:T.muted,fontFamily:"'Inter',sans-serif",background:"rgba(25,158,112,0.07)",border:"1px solid rgba(25,158,112,0.2)",borderRadius:8,padding:"4px 12px",display:"flex",alignItems:"center",gap:6}}>
           <span style={{color:T.green}}>🔄</span>
           Los usuarios se actualizan todos los días a las 22hs (Argentina)
         </div>
@@ -1125,7 +1124,7 @@ sub={`${fmtNum(conDni)} de ${fmtNum(filteredCount)}`}
                       <span style={{
                         fontSize:9,
                         background: plat.toLowerCase().includes("ios")     ? "rgba(56,189,248,0.15)"  :
-                                    plat.toLowerCase().includes("android") ? "rgba(16,185,129,0.15)"  :
+                                    plat.toLowerCase().includes("android") ? "rgba(25,158,112,0.15)"  :
                                     "rgba(255,255,255,0.06)",
                         color:      plat.toLowerCase().includes("ios")     ? "#38bdf8" :
                                     plat.toLowerCase().includes("android") ? T.green   : T.muted,
@@ -1316,10 +1315,10 @@ const rssiProm = rssiValidos.length
       else                    mala++;
     });
     return [
-      { label:"Excelente (≥-65)", value:excelente, color:"#10b981" },
+      { label:"Excelente (≥-65)", value:excelente, color:T.green },
       { label:"Buena (-65 a -75)", value:buena,     color:"#38bdf8" },
-      { label:"Regular (-75 a -85)", value:regular, color:"#f59e0b" },
-      { label:"Mala (<-85)",       value:mala,      color:"#ef4444" },
+      { label:"Regular (-75 a -85)", value:regular, color:T.amber },
+      { label:"Mala (<-85)",       value:mala,      color:T.red },
       { label:"Sin dato",          value:sinDato,   color:"#475569" },
     ].filter(g => g.value > 0);
   }, [sirenasNorm]);
@@ -1354,9 +1353,9 @@ const rssiProm = rssiValidos.length
       let fillColor = "rgba(139,92,246,0.08)";
       if (datos) {
         const pct = datos.total > 0 ? datos.online / datos.total : 0;
-        if (pct >= 0.95)     fillColor = "rgba(16,185,129,0.25)";
+        if (pct >= 0.95)     fillColor = "rgba(25,158,112,0.25)";
         else if (pct >= 0.80) fillColor = "rgba(245,158,11,0.25)";
-        else                  fillColor = "rgba(239,68,68,0.28)";
+        else                  fillColor = "rgba(230,103,103,0.28)";
       }
       const poly = L.geoJSON(feature, {
         style: { fillColor, fillOpacity:0.7, color:"rgba(139,92,246,0.35)", weight:1.5 },
@@ -1377,10 +1376,10 @@ const rssiProm = rssiValidos.length
       : sirenasNorm.filter(s => s.lat && s.lng);
 
     toShow.forEach(s => {
-      const color  = s.online ? "#10b981" : "#ef4444";
+      const color  = s.online ? T.green : T.red;
       const icon = L.divIcon({
         className: "",
-        html: `<div style="width:10px;height:10px;border-radius:50%;background:${color};border:2px solid ${s.online?"#6ee7b7":"#fca5a5"};box-shadow:0 0 6px ${color}88;"></div>`,
+        html: `<div style="width:10px;height:10px;border-radius:50%;background:${color};border:2px solid ${s.online?T.green:T.red};box-shadow:0 0 6px ${color}88;"></div>`,
         iconAnchor: [5,5],
       });
       const m = L.marker([s.lat, s.lng], { icon });
@@ -1389,8 +1388,8 @@ const rssiProm = rssiValidos.length
           <div style="font-weight:700;margin-bottom:4px;">${s.modelo}</div>
           <div style="color:#64748b;margin-bottom:6px;">${s.direccion}</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <span style="background:${s.online?"#10b98120":"#ef444420"};color:${s.online?"#10b981":"#ef4444"};border-radius:4px;padding:1px 7px;font-size:10px;font-weight:600;">${s.online?"● Online":"● Offline"}</span>
-            ${s.rssi != null ? `<span style="color:#f59e0b;font-size:10px;">RSSI: ${s.rssi} dBm</span>` : ""}
+            <span style="background:${s.online?T.green+"20":T.red+"20"};color:${s.online?T.green:T.red};border-radius:4px;padding:1px 7px;font-size:10px;font-weight:600;">${s.online?"● Online":"● Offline"}</span>
+            ${s.rssi != null ? `<span style="color:${T.amber};font-size:10px;">RSSI: ${s.rssi} dBm</span>` : ""}
           </div>
           ${s.firmware !== "—" ? `<div style="color:#475569;font-size:9px;margin-top:4px;">FW: ${s.firmware}</div>` : ""}
         </div>
@@ -1408,12 +1407,12 @@ const rssiProm = rssiValidos.length
   );
 
   // ── Colores ────────────────────────────────────────────────────────────────
-  const modeloColors = ["#8b5cf6","#10b981","#38bdf8","#f59e0b","#ef4444","#f472b6"];
+  const modeloColors = ["#8b5cf6",T.green,"#38bdf8",T.amber,T.red,"#f472b6"];
 
   // ── Estados de carga ───────────────────────────────────────────────────────
   if (estado === "cargando") return (
     <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:300,gap:16}}>
-      <div style={{width:44,height:44,borderRadius:12,background:`linear-gradient(135deg,#38bdf8,#0ea5e9)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>📡</div>
+      <div style={{width:44,height:44,borderRadius:12,background:"#38bdf8",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,opacity:0.5}}>📡</div>
       <div style={{fontSize:12,color:T.muted,fontWeight:500,fontFamily:"'Inter',sans-serif"}}>Cargando sirenas en vivo…</div>
     </div>
   );
@@ -1437,7 +1436,7 @@ const rssiProm = rssiValidos.length
           <select
             value={filtroCgm}
             onChange={e => setFiltroCgm(e.target.value)}
-            style={{background:"#0d0d1f",border:`1px solid ${T.border}`,color:T.text,borderRadius:10,padding:"7px 12px",fontSize:12,fontFamily:"'Inter',sans-serif",outline:"none",cursor:"pointer"}}
+            style={{background:T.bg2,border:`1px solid ${T.border}`,color:T.text,borderRadius:10,padding:"7px 12px",fontSize:12,fontFamily:"'Inter',sans-serif",outline:"none",cursor:"pointer"}}
           >
             <option value="">Todas las localidades</option>
             {localidadOpts.map(l => <option key={l} value={l}>{l}</option>)}
@@ -1451,14 +1450,14 @@ const rssiProm = rssiValidos.length
           <select
   value={filtroEstado}
   onChange={e => setFiltroEstado(e.target.value)}
-  style={{background:"#0d0d1f",border:`1px solid ${T.border}`,color:T.text,borderRadius:10,padding:"7px 12px",fontSize:12,fontFamily:"'Inter',sans-serif",outline:"none",cursor:"pointer"}}
+  style={{background:T.bg2,border:`1px solid ${T.border}`,color:T.text,borderRadius:10,padding:"7px 12px",fontSize:12,fontFamily:"'Inter',sans-serif",outline:"none",cursor:"pointer"}}
 >
   <option value="">Todos los estados</option>
   <option value="online">🟢 Solo Online</option>
   <option value="offline">🔴 Solo Offline</option>
 </select>
           <button onClick={cargarSirenas}
-            style={{background:"rgba(16,185,129,0.1)",border:`1px solid rgba(16,185,129,0.3)`,color:T.green,borderRadius:8,padding:"6px 12px",fontSize:11,fontFamily:"'Inter',sans-serif",cursor:"pointer",fontWeight:600,display:"flex",alignItems:"center",gap:5}}>
+            style={{background:"rgba(25,158,112,0.1)",border:`1px solid rgba(25,158,112,0.3)`,color:T.green,borderRadius:8,padding:"6px 12px",fontSize:11,fontFamily:"'Inter',sans-serif",cursor:"pointer",fontWeight:600,display:"flex",alignItems:"center",gap:5}}>
             ↺ Actualizar
           </button>
         </div>
@@ -1588,7 +1587,7 @@ const rssiProm = rssiValidos.length
                         <tr key={s.id} style={{borderBottom:`1px solid rgba(255,255,255,0.04)`}}>
                           <td style={{padding:"5px 8px",color:T.text2,maxWidth:140,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.direccion}</td>
                           <td style={{padding:"5px 8px",color:T.muted,whiteSpace:"nowrap"}}>{s.localidad}</td>
-                          <td style={{padding:"5px 8px"}}><span style={{background:"rgba(239,68,68,0.1)",color:T.red,borderRadius:4,padding:"1px 6px",fontSize:9,fontWeight:600}}>{s.modelo}</span></td>
+                          <td style={{padding:"5px 8px"}}><span style={{background:"rgba(230,103,103,0.1)",color:T.red,borderRadius:4,padding:"1px 6px",fontSize:9,fontWeight:600}}>{s.modelo}</span></td>
                           <td style={{padding:"5px 8px",color:T.amber,whiteSpace:"nowrap",fontSize:9}}>{fechaOff}</td>
                         </tr>
                       );
@@ -1608,24 +1607,24 @@ const rssiProm = rssiValidos.length
       {vistaTab === "mapa" && (
         <div style={{position:"relative",height:"calc(100vh - 320px)",minHeight:480,borderRadius:14,overflow:"hidden",border:`1px solid ${T.border}`}}>
           <style>{`
-            .sirena-tooltip { background: #16162a; border: 1px solid rgba(139,92,246,0.3); color: #e2e8f0; font-family: Inter, sans-serif; font-size: 11px; border-radius: 8px; padding: 6px 10px; }
+            .sirena-tooltip { background: #131316; border: 1px solid rgba(139,92,246,0.3); color: #f4f4f5; font-family: Inter, sans-serif; font-size: 11px; border-radius: 8px; padding: 6px 10px; }
             .sirena-tooltip::before { display: none; }
-            .leaflet-popup-content-wrapper { background: #16162a !important; border: 1px solid rgba(139,92,246,0.3) !important; border-radius: 10px !important; box-shadow: 0 4px 20px rgba(0,0,0,0.5) !important; }
-            .leaflet-popup-tip { background: #16162a !important; }
+            .leaflet-popup-content-wrapper { background: #131316 !important; border: 1px solid rgba(255,255,255,0.09) !important; border-radius: 10px !important; box-shadow: 0 4px 20px rgba(0,0,0,0.5) !important; }
+            .leaflet-popup-tip { background: #131316 !important; }
             .leaflet-popup-close-button { color: #64748b !important; }
           `}</style>
           <div ref={mapRef} style={{width:"100%",height:"100%"}}/>
           {/* Leyenda */}
           <div style={{position:"absolute",bottom:40,left:12,background:"rgba(10,10,18,0.93)",border:`1px solid ${T.border}`,borderRadius:10,padding:"10px 14px",zIndex:999,fontSize:10,fontFamily:"'Inter',sans-serif"}}>
             <div style={{color:T.muted,letterSpacing:"0.1em",fontWeight:600,textTransform:"uppercase",marginBottom:8,fontSize:9}}>Estado</div>
-            {[["#10b981","● Online"],["#ef4444","● Offline"]].map(([c,l])=>(
+            {[[T.green,"● Online"],[T.red,"● Offline"]].map(([c,l])=>(
               <div key={l} style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
                 <div style={{width:8,height:8,borderRadius:"50%",background:c,boxShadow:`0 0 5px ${c}88`}}/>
                 <span style={{color:T.text2}}>{l}</span>
               </div>
             ))}
             <div style={{borderTop:`1px solid ${T.border}`,marginTop:8,paddingTop:8,color:T.muted,fontSize:9,letterSpacing:"0.1em",fontWeight:600,textTransform:"uppercase",marginBottom:6}}>Zonas (% online)</div>
-            {[["#10b981","≥ 95%"],["#f59e0b","80–94%"],["#ef4444","< 80%"]].map(([c,l])=>(
+            {[[T.green,"≥ 95%"],[T.amber,"80–94%"],[T.red,"< 80%"]].map(([c,l])=>(
               <div key={l} style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
                 <div style={{width:10,height:8,borderRadius:2,background:c,opacity:0.6}}/>
                 <span style={{color:T.text2}}>{l}</span>
@@ -1658,9 +1657,9 @@ const rssiProm = rssiValidos.length
                   const rssiColor = s.rssi == null ? T.muted : s.rssi >= -65 ? T.green : s.rssi >= -75 ? "#38bdf8" : s.rssi >= -85 ? T.amber : T.red;
                   const fmtFecha = f => f ? new Date(f).toLocaleString("es-AR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}) : "—";
                   return (
-                    <tr key={s.id} style={{borderBottom:`1px solid rgba(255,255,255,0.04)`,background:s.online?"transparent":"rgba(239,68,68,0.03)"}}>
+                    <tr key={s.id} style={{borderBottom:`1px solid rgba(255,255,255,0.04)`,background:s.online?"transparent":"rgba(230,103,103,0.03)"}}>
                       <td style={{padding:"6px 10px"}}>
-                        <span style={{display:"inline-flex",alignItems:"center",gap:5,background:s.online?"rgba(16,185,129,0.1)":"rgba(239,68,68,0.1)",color:s.online?T.green:T.red,borderRadius:5,padding:"2px 8px",fontSize:9,fontWeight:700}}>
+                        <span style={{display:"inline-flex",alignItems:"center",gap:5,background:s.online?"rgba(25,158,112,0.1)":"rgba(230,103,103,0.1)",color:s.online?T.green:T.red,borderRadius:5,padding:"2px 8px",fontSize:9,fontWeight:700}}>
                           <span style={{width:5,height:5,borderRadius:"50%",background:s.online?T.green:T.red,display:"inline-block"}}/>
                           {s.online?"Online":"Offline"}
                         </span>
@@ -1805,20 +1804,19 @@ export default function App({ onVolver }) {
 
         {/* HEADER */}
         <div className="no-print" style={{
-          background:`linear-gradient(90deg,${T.bg2} 0%,#1a1535 50%,${T.bg2} 100%)`,
-          border:`1px solid ${T.border}`,borderRadius:16,
+          background:T.bg2,
+          border:`1px solid ${T.border}`,borderRadius:12,
           margin:"14px 20px 0",padding:"14px 24px",
           display:"flex",alignItems:"center",gap:18,
-          boxShadow:"0 4px 24px rgba(0,0,0,0.5)",
         }}>
           {onVolver && (
-            <button onClick={onVolver} style={{background:"rgba(139,92,246,0.12)",border:`1px solid ${T.border}`,color:T.text2,borderRadius:10,padding:"8px 12px",fontSize:12,fontWeight:600,cursor:"pointer",flexShrink:0}}>
+            <button onClick={onVolver} style={{background:"transparent",border:`1px solid ${T.border}`,color:T.text2,borderRadius:10,padding:"8px 12px",fontSize:12,fontWeight:600,cursor:"pointer",flexShrink:0}}>
               ← Volver
             </button>
           )}
-          <div style={{width:40,height:40,borderRadius:10,background:`linear-gradient(135deg,${T.accent},${T.accent2})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>⚡</div>
+          <div style={{width:38,height:38,borderRadius:10,background:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>⚡</div>
           <div>
-            <div style={{fontSize:16,fontWeight:800,color:T.text,letterSpacing:"-0.3px"}}>Centro de Gestión Municipal</div>
+            <div style={{fontSize:16,fontWeight:700,color:T.text,letterSpacing:"-0.3px"}}>Centro de Gestión Municipal</div>
             <div style={{fontSize:11,color:T.text2,marginTop:2}}>Análisis Operativo de Alertas · Partido de Lomas de Zamora</div>
           </div>
           <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:16}}>
@@ -1833,7 +1831,7 @@ export default function App({ onVolver }) {
               </div>
               <div style={{fontSize:10,color:T.muted,marginTop:2}}>{dateLabel}</div>
             </div>
-            <div style={{display:"inline-flex",alignItems:"center",gap:6,background:"rgba(16,185,129,0.1)",border:"1px solid rgba(16,185,129,0.3)",borderRadius:100,padding:"5px 12px",fontSize:10,fontWeight:700,color:"#6ee7b7",letterSpacing:"0.06em"}}>
+            <div style={{display:"inline-flex",alignItems:"center",gap:6,background:"rgba(25,158,112,0.12)",border:"1px solid rgba(25,158,112,0.35)",borderRadius:100,padding:"5px 12px",fontSize:10,fontWeight:700,color:T.green,letterSpacing:"0.06em"}}>
               <span style={{width:6,height:6,borderRadius:"50%",background:T.green,display:"inline-block",animation:"livePulse 2s infinite"}}/>
               EN VIVO
             </div>
@@ -1842,7 +1840,7 @@ export default function App({ onVolver }) {
 
         <div style={{maxWidth:1440,margin:"0 auto",padding:"16px 20px"}}>
 
-          {error && <div style={{background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.3)",borderRadius:10,padding:"10px 14px",color:"#fca5a5",fontSize:12,marginBottom:14}}>⚠ Error Supabase: {error}</div>}
+          {error && <div style={{background:"rgba(230,103,103,0.1)",border:"1px solid rgba(230,103,103,0.3)",borderRadius:10,padding:"10px 14px",color:T.red,fontSize:12,marginBottom:14}}>⚠ Error Supabase: {error}</div>}
 
           {!isUsuariosTab && (
             <div className="no-print">
@@ -1858,8 +1856,8 @@ export default function App({ onVolver }) {
               return (
                 <button key={t.id} onClick={()=>setView(t.id)} style={{
                   background: isActive?"rgba(139,92,246,0.15)":"transparent",
-                  border:`1px solid ${isActive?T.accent:isUsers?"rgba(16,185,129,0.35)":T.border}`,
-                  color: isActive?T.text:isUsers?"#6ee7b7":T.text2,
+                  border:`1px solid ${isActive?T.accent:isUsers?"rgba(25,158,112,0.35)":T.border}`,
+                  color: isActive?T.text:isUsers?T.green:T.text2,
                   borderRadius:10,padding:"8px 16px",fontSize:11,
                   fontFamily:"'Inter',sans-serif",fontWeight:600,
                   letterSpacing:"0.05em",cursor:"pointer",
@@ -1890,7 +1888,7 @@ export default function App({ onVolver }) {
           {/* CONTENIDO */}
           {loading && !isUsuariosTab ? (
             <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:300,gap:16}}>
-              <div style={{width:44,height:44,borderRadius:12,background:`linear-gradient(135deg,${T.accent},${T.accent2})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,opacity:0.6}}>⚡</div>
+              <div style={{width:44,height:44,borderRadius:12,background:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,opacity:0.5}}>⚡</div>
               <div style={{fontSize:12,color:T.muted,fontWeight:500}}>Cargando {loadProgress.toLocaleString()} registros…</div>
               <div style={{width:200,height:3,background:"rgba(255,255,255,0.05)",borderRadius:2,overflow:"hidden"}}>
                 <div style={{height:"100%",width:"60%",background:`linear-gradient(90deg,${T.accent},${T.green})`,borderRadius:2}}/>

@@ -11,7 +11,7 @@ function Tooltip({ tooltip }) {
         position: "fixed",
         left: tooltip.x + 14,
         top: tooltip.y + 14,
-        background: "#0d0d1f",
+        background: T.card,
         border: `1px solid ${T.border}`,
         borderRadius: 8,
         padding: "6px 10px",
@@ -43,7 +43,7 @@ function descargarSVGComoPNG(svgEl, nombreArchivo) {
     canvas.width = Math.max(1, Math.round(bbox.width * scale));
     canvas.height = Math.max(1, Math.round(bbox.height * scale));
     const ctx = canvas.getContext("2d");
-    ctx.fillStyle = "#16162a";
+    ctx.fillStyle = T.card;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.scale(scale, scale);
     ctx.drawImage(img, 0, 0, bbox.width, bbox.height);

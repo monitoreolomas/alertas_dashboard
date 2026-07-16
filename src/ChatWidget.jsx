@@ -49,6 +49,15 @@ export default function ChatWidget({ contexto = "alertas" }) {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, loading, open]);
 
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
+
   async function enviar() {
     const texto = input.trim();
     if (!texto || loading) return;
@@ -86,39 +95,46 @@ export default function ChatWidget({ contexto = "alertas" }) {
   }
 
   return (
-    <div className="no-print" style={{ position: "fixed", bottom: 20, right: 20, zIndex: 1000, fontFamily: "'Inter',sans-serif" }}>
+    <div className="no-print" style={{ fontFamily: "'Inter',sans-serif" }}>
+      {open && (
+        <div
+          onClick={() => setOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.45)",
+            zIndex: 1000,
+            animation: "fadeIn 0.15s ease",
+          }}
+        />
+      )}
+
       {open && (
         <div
           style={{
-            position: "absolute",
+            position: "fixed",
+            top: 0,
             right: 0,
-            bottom: 64,
-            width: 480,
-            height: 700,
-            minWidth: 360,
-            minHeight: 420,
-            maxWidth: "92vw",
-            maxHeight: "80vh",
-            resize: "both",
-            marginBottom: 0,
+            bottom: 0,
+            width: "min(440px, 100vw)",
             background: T.card,
-            border: `1px solid ${T.border}`,
-            borderRadius: 16,
-            boxShadow: "0 16px 50px rgba(0,0,0,0.55)",
+            borderLeft: `1px solid ${T.border}`,
+            boxShadow: "-8px 0 32px rgba(0,0,0,0.4)",
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
-            animation: "chatSlideUp 0.2s ease",
+            zIndex: 1001,
+            animation: "chatSlideIn 0.22s ease",
           }}
         >
           <div
             style={{
-              padding: "12px 16px",
+              padding: "14px 16px",
               borderBottom: `1px solid ${T.border}`,
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              background: `linear-gradient(90deg,${T.bg2},#1a1535)`,
+              background: T.bg2,
               flexShrink: 0,
             }}
           >
@@ -138,24 +154,25 @@ export default function ChatWidget({ contexto = "alertas" }) {
               </button>
               <button
                 onClick={() => setOpen(false)}
-                style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 16, lineHeight: 1, padding: 4 }}
+                title="Cerrar"
+                style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 18, lineHeight: 1, padding: "4px 6px" }}
               >
                 ✕
               </button>
             </div>
           </div>
 
-          <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 12 }}>
+          <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "14px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
             {messages.map((m, i) => (
               <div key={i} style={{ display: "flex", flexDirection: "column", gap: 4, alignSelf: m.role === "user" ? "flex-end" : "flex-start", maxWidth: "94%" }}>
                 <div
                   style={{
-                    background: m.role === "user" ? T.accent : "rgba(255,255,255,0.05)",
+                    background: m.role === "user" ? T.accent : T.bg2,
                     color: m.role === "user" ? "#fff" : T.text,
                     borderRadius: 12,
-                    padding: "8px 12px",
-                    fontSize: 12.5,
-                    lineHeight: 1.5,
+                    padding: "9px 12px",
+                    fontSize: 13,
+                    lineHeight: 1.55,
                     whiteSpace: "pre-wrap",
                   }}
                 >
@@ -184,13 +201,13 @@ export default function ChatWidget({ contexto = "alertas" }) {
               </div>
             )}
             {error && (
-              <div style={{ alignSelf: "flex-start", color: T.red, fontSize: 11.5, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 8, padding: "6px 10px" }}>
+              <div style={{ alignSelf: "flex-start", color: T.red, fontSize: 11.5, background: "rgba(230,103,103,0.1)", border: "1px solid rgba(230,103,103,0.3)", borderRadius: 8, padding: "6px 10px" }}>
                 {error}
               </div>
             )}
           </div>
 
-          <div style={{ padding: 10, borderTop: `1px solid ${T.border}`, display: "flex", gap: 8, flexShrink: 0 }}>
+          <div style={{ padding: 12, borderTop: `1px solid ${T.border}`, display: "flex", gap: 8, flexShrink: 0 }}>
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -200,7 +217,7 @@ export default function ChatWidget({ contexto = "alertas" }) {
               style={{
                 flex: 1,
                 resize: "none",
-                background: "#0d0d1f",
+                background: T.bg2,
                 border: `1px solid ${T.border}`,
                 color: T.text,
                 borderRadius: 10,
@@ -234,20 +251,24 @@ export default function ChatWidget({ contexto = "alertas" }) {
       <button
         onClick={() => setOpen((o) => !o)}
         style={{
+          position: "fixed",
+          bottom: 20,
+          right: 20,
           width: 52,
           height: 52,
           borderRadius: "50%",
           border: "none",
-          background: `linear-gradient(135deg,${T.accent},${T.accent2})`,
+          background: T.accent,
           color: "#fff",
           fontSize: 22,
           cursor: "pointer",
-          boxShadow: "0 6px 20px rgba(139,92,246,0.45)",
+          boxShadow: "0 6px 20px rgba(139,92,246,0.4)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          zIndex: 1002,
         }}
-        title="Preguntale a la IA sobre los datos"
+        title={open ? "Cerrar asistente" : "Preguntale a la IA sobre los datos"}
       >
         {open ? "✕" : "💬"}
       </button>

@@ -2,19 +2,24 @@
 
 *{box-sizing:border-box;margin:0;padding:0;}
 
-body{background:#0a0a12;}
+body{background:#09090b;}
 
 ::-webkit-scrollbar{width:5px;height:5px;}
-::-webkit-scrollbar-track{background:#0a0a12;}
-::-webkit-scrollbar-thumb{background:rgba(139,92,246,0.3);border-radius:3px;}
-::-webkit-scrollbar-thumb:hover{background:rgba(139,92,246,0.5);}
+::-webkit-scrollbar-track{background:#09090b;}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.12);border-radius:3px;}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.2);}
 
 @keyframes livePulse{
-  0%,100%{opacity:1;box-shadow:0 0 6px #10b981;}
-  50%{opacity:.55;box-shadow:0 0 12px #10b981;}
+  0%,100%{opacity:1;}
+  50%{opacity:.4;}
 }
 
-@keyframes chatSlideUp{
-  from{opacity:0;transform:translateY(12px);}
-  to{opacity:1;transform:translateY(0);}
+@keyframes chatSlideIn{
+  from{transform:translateX(100%);}
+  to{transform:translateX(0);}
+}
+
+@keyframes fadeIn{
+  from{opacity:0;}
+  to{opacity:1;}
 }

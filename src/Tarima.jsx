@@ -128,12 +128,11 @@ function Kpi({ icon, label, value, delta, sub, invert, accentColor = T.accent })
     );
   }
   return (
-    <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 16, padding: "16px 18px", position: "relative", overflow: "hidden" }}>
-      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg,${accentColor},${accentColor}99)` }} />
-      <div style={{ fontSize: 11, color: T.text2, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 4, display: "flex", alignItems: "center", gap: 5 }}>
-        <span>{icon}</span>{label}
+    <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: "18px 20px" }}>
+      <div style={{ fontSize: 11, color: T.text2, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+        <span style={{ fontSize: 13, opacity: 0.85 }}>{icon}</span>{label}
       </div>
-      <div style={{ fontSize: 26, fontWeight: 800, color: T.text, margin: "3px 0 4px", lineHeight: 1.15 }}>{value}</div>
+      <div style={{ fontSize: 26, fontWeight: 600, color: T.text, margin: "0 0 6px", lineHeight: 1.1, letterSpacing: "-0.01em" }}>{value}</div>
       {deltaEl}
       {sub && <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>{sub}</div>}
     </div>
@@ -142,9 +141,9 @@ function Kpi({ icon, label, value, delta, sub, invert, accentColor = T.accent })
 
 function Card({ title, icon, children, style = {} }) {
   return (
-    <div style={{ background: T.card, border: "1px solid rgba(139,92,246,0.14)", borderRadius: 16, padding: "16px 18px", boxShadow: "0 4px 20px rgba(0,0,0,0.3)", ...style }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: T.text, letterSpacing: "0.05em", textTransform: "uppercase", borderBottom: "1px solid rgba(139,92,246,0.15)", paddingBottom: 8, marginBottom: 12, display: "flex", alignItems: "center", gap: 7 }}>
-        {icon && <span>{icon}</span>}
+    <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: "18px 20px", ...style }}>
+      <div style={{ fontSize: 11, fontWeight: 600, color: T.text2, letterSpacing: "0.04em", textTransform: "uppercase", borderBottom: `1px solid ${T.border}`, paddingBottom: 10, marginBottom: 14, display: "flex", alignItems: "center", gap: 7 }}>
+        {icon && <span style={{ fontSize: 13, opacity: 0.85 }}>{icon}</span>}
         {title}
       </div>
       {children}
@@ -171,7 +170,7 @@ function MultiSelect({ label, options, value, onChange, placeholder = "Todos" })
       <label style={{ fontSize: 11, color: T.text2, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 5, display: "block" }}>{label}</label>
       <button
         onClick={() => setOpen((o) => !o)}
-        style={{ width: "100%", textAlign: "left", background: "#0d0d1f", border: `1px solid ${T.border}`, color: T.text, borderRadius: 10, padding: "7px 10px", fontSize: 12, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: "'Inter',sans-serif" }}
+        style={{ width: "100%", textAlign: "left", background: T.bg2, border: `1px solid ${T.border}`, color: T.text, borderRadius: 10, padding: "7px 10px", fontSize: 12, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: "'Inter',sans-serif" }}
       >
         <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{labelTxt}</span>
         <span style={{ color: T.muted, fontSize: 10 }}>▼</span>
@@ -197,7 +196,7 @@ function ChartTooltip({ tooltip }) {
     <div
       style={{
         position: "fixed", left: tooltip.x + 14, top: tooltip.y + 14,
-        background: "#0d0d1f", border: `1px solid ${T.border}`, borderRadius: 8,
+        background: T.bg2, border: `1px solid ${T.border}`, borderRadius: 8,
         padding: "6px 10px", fontSize: 11, color: T.text, pointerEvents: "none",
         zIndex: 9999, whiteSpace: "nowrap", boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
       }}
@@ -833,13 +832,13 @@ export default function Tarima({ onVolver }) {
     };
   }, [dfc, dfp]);
 
-  const baseInp = { background: "#0d0d1f", border: `1px solid ${T.border}`, color: T.text, borderRadius: 10, padding: "7px 10px", fontSize: 12, fontFamily: "'Inter',sans-serif", outline: "none", width: "100%", colorScheme: "dark" };
+  const baseInp = { background: T.bg2, border: `1px solid ${T.border}`, color: T.text, borderRadius: 10, padding: "7px 10px", fontSize: 12, fontFamily: "'Inter',sans-serif", outline: "none", width: "100%", colorScheme: "dark" };
   const lbl = { fontSize: 11, color: T.text2, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 5, display: "block" };
 
   if (loading) {
     return (
       <div style={{ minHeight: "100vh", background: T.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, fontFamily: "'Inter',sans-serif" }}>
-        <div style={{ width: 44, height: 44, borderRadius: 12, background: `linear-gradient(135deg,${T.accent},${T.accent2})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>🔵</div>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: T.accent, opacity: 0.5, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>🔵</div>
         <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>Cargando datos de Tarima…</div>
       </div>
     );
@@ -848,25 +847,25 @@ export default function Tarima({ onVolver }) {
   return (
     <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "'Inter',sans-serif" }}>
 
-      <div style={{ background: `linear-gradient(90deg,${T.bg2} 0%,#1a1535 50%,${T.bg2} 100%)`, border: `1px solid ${T.border}`, borderRadius: 16, margin: "14px 20px 0", padding: "14px 24px", display: "flex", alignItems: "center", gap: 18, boxShadow: "0 4px 24px rgba(0,0,0,0.5)" }}>
+      <div style={{ background: T.bg2, border: `1px solid ${T.border}`, borderRadius: 12, margin: "14px 20px 0", padding: "14px 24px", display: "flex", alignItems: "center", gap: 18 }}>
         {onVolver && (
-          <button onClick={onVolver} style={{ background: "rgba(139,92,246,0.12)", border: `1px solid ${T.border}`, color: T.text2, borderRadius: 10, padding: "8px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", flexShrink: 0 }}>
+          <button onClick={onVolver} style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.text2, borderRadius: 10, padding: "8px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", flexShrink: 0 }}>
             ← Volver
           </button>
         )}
-        <div style={{ width: 40, height: 40, borderRadius: 10, background: `linear-gradient(135deg,${T.accent},${T.accent2})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>🔵</div>
+        <div style={{ width: 38, height: 38, borderRadius: 10, background: T.accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, flexShrink: 0 }}>🔵</div>
         <div>
-          <div style={{ fontSize: 16, fontWeight: 800, color: T.text, letterSpacing: "-0.3px" }}>Centro de Operaciones Lomas</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: T.text, letterSpacing: "-0.3px" }}>Centro de Operaciones Lomas</div>
           <div style={{ fontSize: 11, color: T.text2, marginTop: 2 }}>Análisis Operativo · Sistema de monitoreo del Partido de Lomas de Zamora</div>
         </div>
-        <div style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)", borderRadius: 100, padding: "5px 12px", fontSize: 10, fontWeight: 700, color: "#6ee7b7", letterSpacing: "0.06em" }}>
+        <div style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(25,158,112,0.12)", border: "1px solid rgba(25,158,112,0.35)", borderRadius: 100, padding: "5px 12px", fontSize: 10, fontWeight: 700, color: T.green, letterSpacing: "0.06em" }}>
           <span style={{ width: 6, height: 6, borderRadius: "50%", background: T.green, display: "inline-block", animation: "livePulse 2s infinite" }} />
           EN VIVO
         </div>
       </div>
 
       <div style={{ maxWidth: 1440, margin: "0 auto", padding: "16px 20px" }}>
-        {error && <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 10, padding: "10px 14px", color: "#fca5a5", fontSize: 12, marginBottom: 14 }}>⚠ {error}</div>}
+        {error && <div style={{ background: "rgba(230,103,103,0.1)", border: "1px solid rgba(230,103,103,0.3)", borderRadius: 10, padding: "10px 14px", color: T.red, fontSize: 12, marginBottom: 14 }}>⚠ {error}</div>}
 
         <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, marginBottom: 16, overflow: "hidden" }}>
           <button onClick={() => setFiltersOpen((o) => !o)} style={{ width: "100%", background: "transparent", border: "none", padding: "12px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", color: T.text2 }}>
@@ -899,12 +898,12 @@ export default function Tarima({ onVolver }) {
         </div>
 
         {kpis.nCur > 0 && kpis.dPct > 20 && (
-          <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 12, padding: "9px 14px", fontSize: 13, color: "#fca5a5", marginBottom: 10 }}>
+          <div style={{ background: "rgba(230,103,103,0.1)", border: "1px solid rgba(230,103,103,0.3)", borderRadius: 12, padding: "9px 14px", fontSize: 13, color: T.red, marginBottom: 10 }}>
             🚨 <b>Alerta:</b> Novedades <b>+{kpis.dPct.toFixed(1)}%</b> vs período anterior · Categoría líder: <b>{kpis.catTop}</b> ({fmt(kpis.catTopN)}) · CGM más activo: <b>{kpis.cgmTop}</b>
           </div>
         )}
         {kpis.nCur > 0 && kpis.dPct < -20 && (
-          <div style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)", borderRadius: 12, padding: "9px 14px", fontSize: 13, color: "#6ee7b7", marginBottom: 10 }}>
+          <div style={{ background: "rgba(25,158,112,0.1)", border: "1px solid rgba(25,158,112,0.3)", borderRadius: 12, padding: "9px 14px", fontSize: 13, color: T.green, marginBottom: 10 }}>
             ✅ <b>Tendencia positiva:</b> Novedades <b>{kpis.dPct.toFixed(1)}%</b> vs período anterior
           </div>
         )}
