@@ -1796,6 +1796,7 @@ export default function App({ onVolver }) {
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           .print-header { display: block !important; }
           .cgm-dark-tiles { display: none; }
+          .print-scale { transform: scale(0.72); transform-origin: top left; width: 138.9%; }
         }
         .print-header { display: none; }
       `}</style>
@@ -1838,7 +1839,7 @@ export default function App({ onVolver }) {
           </div>
         </div>
 
-        <div style={{maxWidth:1440,margin:"0 auto",padding:"16px 20px"}}>
+        <div className="print-scale" style={{maxWidth:1440,margin:"0 auto",padding:"16px 20px"}}>
 
           {error && <div style={{background:"rgba(230,103,103,0.1)",border:"1px solid rgba(230,103,103,0.3)",borderRadius:10,padding:"10px 14px",color:T.red,fontSize:12,marginBottom:14}}>⚠ Error Supabase: {error}</div>}
 

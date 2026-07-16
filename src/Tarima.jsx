@@ -840,6 +840,7 @@ export default function Tarima({ onVolver }) {
           .no-print { display: none !important; }
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           .print-header { display: block !important; }
+          .print-scale { transform: scale(0.72); transform-origin: top left; width: 138.9%; }
         }
         .print-header { display: none; }
       `}</style>
@@ -863,7 +864,7 @@ export default function Tarima({ onVolver }) {
         </div>
       </div>
 
-      <div style={{ maxWidth: 1440, margin: "0 auto", padding: "16px 20px" }}>
+      <div className="print-scale" style={{ maxWidth: 1440, margin: "0 auto", padding: "16px 20px" }}>
         {error && <div style={{ background: "rgba(230,103,103,0.1)", border: "1px solid rgba(230,103,103,0.3)", borderRadius: 10, padding: "10px 14px", color: T.red, fontSize: 12, marginBottom: 14 }}>⚠ {error}</div>}
 
         <div className="no-print" style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, marginBottom: 16, overflow: "hidden" }}>
